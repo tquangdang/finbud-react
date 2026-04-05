@@ -1,3 +1,4 @@
+import axios from 'axios';
 import Stock from '../models/Stock.js';
 import { getQuote, searchSymbol, getCompanyProfile, getCandles } from '../services/stockService.js';
 
@@ -67,10 +68,11 @@ export const getProfile = async (req, res) => {
 };
 
 export const getChart = async (req, res) => {
-    try {
-        const { symbol } = req.params;
-        const { range = '1M' } = req.query;
+    const { symbol } = req.params;
+    const { range = '1M' } = req.query;
 
+    // Try Finnhub first
+    try {
         const now = Math.floor(Date.now() / 1000);
         const ranges = {
             '1W': 7 * 86400,
@@ -79,11 +81,17 @@ export const getChart = async (req, res) => {
             '1Y': 365 * 86400,
         };
         const from = now - (ranges[range] || ranges['1M']);
-
         const candles = await getCandles(symbol, from, now);
-        res.json(candles);
+        if (candles.length > 0) return res.json(candles);
+    } catch { /* fall through to ML service */ }
+
+    // Fallback: fetch from ML service (yfinance)
+    try {
+        const mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+        const { data } = await axios.get(`${mlUrl}/chart/${symbol}?range=${range}`);
+        res.json(data);
     } catch (error) {
-        console.error('Chart error:', error.response?.status, error.response?.data || error.message);
+        console.error('Chart error:', error.message);
         res.json([]);
     }
 };

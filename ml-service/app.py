@@ -30,6 +30,33 @@ class PredictionResponse(BaseModel):
 def health():
     return {"status": "ok", "service": "finbud-ml"}
 
+
+@app.get("/chart/{symbol}")
+def chart(symbol: str, range: str = "1M"):
+    period_map = {"1W": "5d", "1M": "1mo", "3M": "3mo", "1Y": "1y"}
+    period = period_map.get(range, "1mo")
+
+    try:
+        ticker = yf.Ticker(symbol.upper())
+        df = ticker.history(period=period)
+    except Exception:
+        return []
+
+    if df.empty:
+        return []
+
+    data = []
+    for date, row in df.iterrows():
+        data.append({
+            "date": int(date.timestamp() * 1000),
+            "close": round(row["Close"], 2),
+            "open": round(row["Open"], 2),
+            "high": round(row["High"], 2),
+            "low": round(row["Low"], 2),
+            "volume": int(row["Volume"]),
+        })
+    return data
+
 @app.post("/predict", response_model=PredictionResponse)
 def predict(req: PredictionRequest):
     symbol = req.symbol.upper()
