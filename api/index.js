@@ -1,3 +1,13 @@
-import app from '../backend/app.js';
+let appPromise;
 
-export default app;
+function getApp() {
+  if (!appPromise) {
+    appPromise = import('../backend/app.js').then((m) => m.default);
+  }
+  return appPromise;
+}
+
+module.exports = async (req, res) => {
+  const app = await getApp();
+  app(req, res);
+};
