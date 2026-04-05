@@ -87,7 +87,8 @@ export const getChart = async (req, res) => {
 
     // Fallback: fetch from ML service (yfinance)
     try {
-        const mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+        let mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+        if (mlUrl && !mlUrl.startsWith('http')) mlUrl = `https://${mlUrl}`;
         const { data } = await axios.get(`${mlUrl}/chart/${symbol}?range=${range}`);
         res.json(data);
     } catch (error) {
