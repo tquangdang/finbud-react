@@ -83,7 +83,8 @@ export const getChart = async (req, res) => {
         const candles = await getCandles(symbol, from, now);
         res.json(candles);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch chart data' });
+        console.error('Chart error:', error.response?.status, error.response?.data || error.message);
+        res.json([]);
     }
 };
 
