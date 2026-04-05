@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FinBud — Giải thích kiến trúc dự án</title>
+<style>
+  :root {
+    --bg: #fafafa; --card: #fff; --border: #e5e7eb; --text: #1a1a1a;
+    --muted: #6b7280; --accent: #2563eb; --accent-light: #dbeafe;
+    --green: #059669; --green-light: #d1fae5; --orange: #d97706; --orange-light: #fef3c7;
+    --red: #dc2626; --red-light: #fee2e2; --purple: #7c3aed; --purple-light: #ede9fe;
+    --pink: #db2777; --pink-light: #fce7f3;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.8; }
+  
+  .hero { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 60px 24px; text-align: center; }
+  .hero h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; }
+  .hero p { margin-top: 12px; font-size: 1.1rem; opacity: 0.85; max-width: 640px; margin-left: auto; margin-right: auto; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+
+  nav.toc { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 40px; }
+  nav.toc h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; }
+  nav.toc ol { padding-left: 20px; }
+  nav.toc li { margin-bottom: 8px; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  section { margin-bottom: 56px; }
+  section h2 { font-size: 1.6rem; font-weight: 800; color: var(--accent); margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid var(--accent); }
+  section h3 { font-size: 1.15rem; font-weight: 700; margin: 24px 0 10px; }
+
+  p, li { font-size: 0.95rem; color: var(--text); }
+  p { margin-bottom: 14px; }
+  ul, ol { padding-left: 24px; margin-bottom: 14px; }
+  li { margin-bottom: 6px; }
+  
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin: 20px 0; }
+  
+  .diagram { background: #f8fafc; border: 2px dashed var(--border); border-radius: 14px; padding: 24px; margin: 20px 0; overflow-x: auto; text-align: center; }
+  .diagram svg { max-width: 100%; height: auto; }
+
+  pre { background: #1e293b; color: #e2e8f0; border-radius: 12px; padding: 20px; overflow-x: auto; margin: 16px 0; font-size: 0.85rem; line-height: 1.7; }
+  code { font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace; }
+  .inline-code { background: #f1f5f9; color: #1e293b; padding: 2px 8px; border-radius: 6px; font-size: 0.88rem; }
+
+  .line-explain { display: flex; gap: 14px; margin: 6px 0; align-items: flex-start; }
+  .line-num { background: var(--accent); color: white; font-size: 0.75rem; font-weight: 700; border-radius: 6px; padding: 2px 8px; min-width: 42px; text-align: center; flex-shrink: 0; margin-top: 2px; }
+  .line-text { font-size: 0.9rem; color: var(--muted); }
+
+  .badge { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-blue { background: var(--accent-light); color: var(--accent); }
+  .badge-green { background: var(--green-light); color: var(--green); }
+  .badge-orange { background: var(--orange-light); color: var(--orange); }
+  .badge-red { background: var(--red-light); color: var(--red); }
+  .badge-purple { background: var(--purple-light); color: var(--purple); }
+  .badge-pink { background: var(--pink-light); color: var(--pink); }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .compare-col { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .compare-col h4 { font-size: 1rem; font-weight: 700; margin-bottom: 10px; }
+
+  .file-ref { display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9; padding: 2px 10px; border-radius: 6px; font-size: 0.82rem; color: var(--accent); font-weight: 600; }
+
+  .teacher-note { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 12px 12px 0; padding: 16px 20px; margin: 16px 0; font-size: 0.93rem; color: #92400e; }
+  .teacher-note strong { color: #78350f; }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 1.8rem; }
+    .compare-grid { grid-template-columns: 1fr; }
+    pre { font-size: 0.78rem; padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>FinBud — Giải thích kiến trúc dự án</h1>
+  <p>Tài liệu hướng dẫn chi tiết dành cho các bạn muốn hiểu rõ cách một ứng dụng web full-stack hoạt động từ A đến Z</p>
+</div>
+
+<div class="container">
+
+<!-- MỤC LỤC -->
+<nav class="toc">
+  <h2>Mục lục</h2>
+  <ol>
+    <li><a href="#mvc">MVC là gì và áp dụng vào project này ra sao?</a></li>
+    <li><a href="#connect">Backend kết nối với Frontend bằng cách nào?</a></li>
+    <li><a href="#api-flow">Một API request đi qua những bước nào?</a></li>
+    <li><a href="#oauth">Google OAuth khác gì đăng ký / đăng nhập thường?</a></li>
+    <li><a href="#session">Session hoạt động như thế nào?</a></li>
+    <li><a href="#openai">Tích hợp OpenAI vào dự án ra sao?</a></li>
+  </ol>
+</nav>
+
+<!-- ========================================== -->
+<!-- 1. MVC -->
+<!-- ========================================== -->
+<section id="mvc">
+  <h2>1. MVC là gì và áp dụng vào project này ra sao?</h2>
+  
+  <p>Nào, trước tiên mình giải thích khái niệm cái đã. <strong>MVC</strong> viết tắt của <strong>Model – View – Controller</strong>. Đây là cách tổ chức code sao cho mỗi phần chỉ lo <em>đúng một việc</em> thôi — giống như trong nhà hàng vậy: đầu bếp (Model) lo nấu ăn, bồi bàn (Controller) lo nhận order và phục vụ, còn thực khách (View) chỉ việc nhìn thấy món ăn đẹp đẹp và thưởng thức.</p>
+
+  <p>Tách ra như vậy thì code dễ đọc hơn, dễ sửa hơn, và khi team có nhiều người thì mỗi người lo một phần mà không đụng vào nhau.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <!-- View Box -->
+      <rect x="30" y="40" width="200" height="120" rx="14" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="130" y="80" text-anchor="middle" font-weight="800" font-size="16" fill="#2563eb">VIEW</text>
+      <text x="130" y="102" text-anchor="middle" font-size="11" fill="#3b82f6">Giao diện (React)</text>
+      <text x="130" y="120" text-anchor="middle" font-size="10" fill="#6b7280">pages/, components/</text>
+      <text x="130" y="136" text-anchor="middle" font-size="10" fill="#6b7280">store/, services/api.js</text>
+      
+      <!-- Controller Box -->
+      <rect x="300" y="40" width="200" height="120" rx="14" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="400" y="80" text-anchor="middle" font-weight="800" font-size="16" fill="#059669">CONTROLLER</text>
+      <text x="400" y="102" text-anchor="middle" font-size="11" fill="#10b981">Xử lý logic</text>
+      <text x="400" y="120" text-anchor="middle" font-size="10" fill="#6b7280">routes/ + controllers/</text>
+      <text x="400" y="136" text-anchor="middle" font-size="10" fill="#6b7280">middleware/ + services/</text>
+
+      <!-- Model Box -->
+      <rect x="570" y="40" width="200" height="120" rx="14" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="670" y="80" text-anchor="middle" font-weight="800" font-size="16" fill="#d97706">MODEL</text>
+      <text x="670" y="102" text-anchor="middle" font-size="11" fill="#f59e0b">Tầng dữ liệu</text>
+      <text x="670" y="120" text-anchor="middle" font-size="10" fill="#6b7280">models/ (Mongoose)</text>
+      <text x="670" y="136" text-anchor="middle" font-size="10" fill="#6b7280">MongoDB Atlas</text>
+
+      <!-- Mũi tên -->
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#6b7280"/></marker>
+      </defs>
+      <line x1="230" y1="90" x2="295" y2="90" stroke="#6b7280" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="262" y="82" text-anchor="middle" font-size="10" fill="#6b7280">HTTP</text>
+      <text x="262" y="108" text-anchor="middle" font-size="10" fill="#6b7280">request</text>
+      <line x1="295" y1="115" x2="235" y2="115" stroke="#6b7280" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="500" y1="90" x2="565" y2="90" stroke="#6b7280" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="532" y="82" text-anchor="middle" font-size="10" fill="#6b7280">truy vấn</text>
+      <line x1="565" y1="115" x2="505" y2="115" stroke="#6b7280" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="532" y="132" text-anchor="middle" font-size="10" fill="#6b7280">dữ liệu</text>
+
+      <!-- Bảng mapping file -->
+      <rect x="30" y="200" width="740" height="180" rx="14" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="400" y="228" text-anchor="middle" font-weight="700" font-size="14" fill="#1e293b">Ánh xạ sang các file cụ thể trong project</text>
+      
+      <rect x="55" y="248" width="210" height="115" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+      <text x="160" y="268" text-anchor="middle" font-weight="700" font-size="12" fill="#d97706">MODEL (backend/models/)</text>
+      <text x="65" y="288" font-size="11" fill="#6b7280">&#x2022; User.js   &#x2022; Chat.js</text>
+      <text x="65" y="306" font-size="11" fill="#6b7280">&#x2022; Thread.js &#x2022; Goal.js</text>
+      <text x="65" y="324" font-size="11" fill="#6b7280">&#x2022; Noti.js   &#x2022; Stock.js</text>
+      <text x="65" y="342" font-size="11" fill="#6b7280">&#x2022; Portfolio.js</text>
+      
+      <rect x="290" y="248" width="210" height="115" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="1"/>
+      <text x="395" y="268" text-anchor="middle" font-weight="700" font-size="12" fill="#059669">CONTROLLER</text>
+      <text x="300" y="288" font-size="11" fill="#6b7280">routes/authRoutes.js</text>
+      <text x="300" y="304" font-size="11" fill="#6b7280">controllers/authController.js</text>
+      <text x="300" y="320" font-size="11" fill="#6b7280">controllers/chatController.js</text>
+      <text x="300" y="336" font-size="11" fill="#6b7280">middleware/auth.js</text>
+      <text x="300" y="352" font-size="11" fill="#6b7280">services/aiService.js</text>
+
+      <rect x="525" y="248" width="220" height="115" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+      <text x="635" y="268" text-anchor="middle" font-weight="700" font-size="12" fill="#2563eb">VIEW (frontend/src/)</text>
+      <text x="535" y="288" font-size="11" fill="#6b7280">pages/ChatPage.jsx</text>
+      <text x="535" y="304" font-size="11" fill="#6b7280">pages/GoalPage.jsx</text>
+      <text x="535" y="320" font-size="11" fill="#6b7280">pages/LoginPage.jsx</text>
+      <text x="535" y="336" font-size="11" fill="#6b7280">components/NavBar.jsx</text>
+      <text x="535" y="352" font-size="11" fill="#6b7280">store/useAuthStore.js</text>
+    </svg>
+  </div>
+
+  <h3><span class="badge badge-orange">MODEL</span> — Tầng Dữ Liệu</h3>
+  <p>Các bạn cứ hình dung Model như cái <em>kho hàng</em> của nhà hàng vậy. Nó định nghĩa "hình dáng" của dữ liệu (user trông như nào, goal có những trường gì...) và lo việc đọc/ghi vào database.</p>
+
+  <p>Mở file <span class="file-ref">backend/models/User.js</span> ra, các bạn sẽ thấy thế này:</p>
+  <pre><code>const userSchema = new mongoose.Schema({
+    email: {
+      type: String,
+      required: true,       // bắt buộc phải có — thiếu là báo lỗi
+      unique: true,          // không cho 2 user trùng email
+      trim: true,            // tự cắt khoảng trắng 2 đầu
+      lowercase: true,       // tự chuyển thành chữ thường
+    },
+    accountData: {
+      username: { type: String, required: true, unique: true },
+      password: String,      // sẽ được mã hoá (hash) trước khi lưu
+      priviledge: { type: String, enum: ["admin", "user"], default: "user" },
+    },
+    identityData: {
+      firstName: String,
+      lastName: String,
+      displayName: String,
+      profilePicture: String,
+    },
+    bankingAccountData: {
+      accountBalance: { type: Number, default: 0 },
+      cash: { type: Number, default: 1000 },
+    },
+});</code></pre>
+
+  <div class="line-explain"><span class="line-num">L4</span><span class="line-text"><strong>mongoose.Schema({...})</strong> — Đây là "khuôn mẫu". Tưởng tượng nó như tờ đơn đăng ký: phải điền đúng các ô đã quy định. Mỗi user trong MongoDB sẽ có đúng các trường như khai báo ở đây.</span></div>
+  <div class="line-explain"><span class="line-num">L8</span><span class="line-text"><strong>unique: true</strong> — MongoDB sẽ tự tạo index và từ chối nếu có 2 user cùng email. Giống như số CMND vậy — không ai được trùng.</span></div>
+  <div class="line-explain"><span class="line-num">L19</span><span class="line-text"><strong>password: String</strong> — Để ý là không có <em>required</em> nhé! Lý do: user đăng nhập bằng Google sẽ không có password. Mình sẽ nói kỹ hơn ở phần OAuth bên dưới.</span></div>
+
+  <div class="teacher-note">
+    <strong>Thầy lưu ý:</strong> Model không chỉ định nghĩa schema đâu, nó còn chứa cả "logic liên quan đến dữ liệu" nữa. Ví dụ: tự động mã hoá password trước khi lưu, hoặc so sánh password khi đăng nhập.
+  </div>
+
+  <pre><code>// Tự động hash password TRƯỚC KHI lưu vào database
+userSchema.pre('save', async function() {
+  if (this.accountData.password && this.isModified('accountData.password')) {
+      const salt = await bcryptjs.genSalt(10);
+      this.accountData.password = await bcryptjs.hash(this.accountData.password, salt);
+  }
+});
+
+// Hàm để so sánh password khi đăng nhập
+userSchema.methods.comparePassword = async function (enteredPassword) {
+    if (!this.accountData.password) return false; // User OAuth không có password
+    return await bcryptjs.compare(enteredPassword, this.accountData.password);
+};</code></pre>
+  <div class="line-explain"><span class="line-num">L63</span><span class="line-text"><strong>pre('save')</strong> — Cái này gọi là Mongoose <em>hook</em> (móc nối). Mỗi khi gọi <code>.save()</code>, hàm này sẽ chạy <strong>trước</strong> để mã hoá password. User nhập "abc123" thì DB lưu thành chuỗi hash dài loằng ngoằng — an toàn hơn rất nhiều.</span></div>
+  <div class="line-explain"><span class="line-num">L64</span><span class="line-text"><strong>isModified('accountData.password')</strong> — Chỉ hash lại khi password <em>thực sự thay đổi</em>. Tại sao? Vì nếu không kiểm tra, mỗi lần save user (ví dụ đổi tên), nó lại hash cái password đã hash → sai bét!</span></div>
+
+  <h3><span class="badge badge-green">CONTROLLER</span> — Tầng Xử Lý Logic</h3>
+  <p>Controller giống như anh bồi bàn: nhận yêu cầu từ khách (request từ frontend), đi vào bếp lấy đồ (gọi Model), rồi bưng ra cho khách (trả response). Trong project này, Controller được tách thành 2 phần nhỏ:</p>
+  <ul>
+    <li><strong>Routes</strong> (<span class="inline-code">routes/*.js</span>) — Giống bảng menu: "gọi món gì thì đi bàn nào". Nó map URL → hàm xử lý.</li>
+    <li><strong>Controllers</strong> (<span class="inline-code">controllers/*.js</span>) — Nơi chứa logic xử lý chính: kiểm tra, truy vấn DB, trả kết quả.</li>
+  </ul>
+
+  <p>Ví dụ: khi user tạo một Goal (mục tiêu tài chính) mới:</p>
+  <pre><code>// routes/goalRoutes.js — "Bảng menu"
+router.use(isAuthenticated);          // Tất cả route này phải đăng nhập mới dùng được
+router.post('/', createGoal);         // POST /api/goals → gọi hàm createGoal
+
+// controllers/goalController.js — "Bếp" xử lý
+export const createGoal = async (req, res) => {
+    try {
+        const goal = await Goal.create({  // Nhờ MODEL tạo dữ liệu mới trong DB
+            ...req.body,                  // Lấy data từ body của request
+            userId: req.user._id,         // Gắn userId từ session (ai đang đăng nhập)
+        });
+        res.status(201).json(goal);       // Trả về 201 Created kèm data vừa tạo
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create goal' });
+    }
+};</code></pre>
+
+  <h3><span class="badge badge-blue">VIEW</span> — Tầng Giao Diện</h3>
+  <p>View là toàn bộ app React phía frontend. Nhiệm vụ của nó là hiển thị dữ liệu cho user thấy, và gửi request về backend khi user tương tác (bấm nút, submit form,...).</p>
+  <pre><code>// frontend/src/pages/GoalPage.jsx
+const handleCreate = async (e) => {
+    e.preventDefault();
+    await api.post('/goals', {             // Gửi HTTP POST về backend
+        ...form,
+        targetAmount: Number(form.targetAmount),
+    });
+    fetchGoals();                          // Tải lại danh sách goals
+};</code></pre>
+
+  <div class="teacher-note">
+    <strong>Tóm lại:</strong> Khi user bấm "Tạo Goal" trên giao diện → <strong>View</strong> gửi request → <strong>Controller</strong> nhận request, xử lý logic → gọi <strong>Model</strong> lưu vào database → trả kết quả ngược lại cho View hiển thị. Ba tầng phối hợp rất rõ ràng!
+  </div>
+</section>
+
+<!-- ========================================== -->
+<!-- 2. BACKEND - FRONTEND KẾT NỐI -->
+<!-- ========================================== -->
+<section id="connect">
+  <h2>2. Backend kết nối với Frontend bằng cách nào?</h2>
+
+  <p>Đây là câu hỏi nhiều bạn mới hay thắc mắc. Câu trả lời: Frontend và Backend là <strong>hai ứng dụng HOÀN TOÀN TÁCH BIỆT</strong>, chạy trên 2 port khác nhau. Chúng "nói chuyện" với nhau thông qua <strong>HTTP requests</strong> — giống như bạn gửi thư đi rồi nhận thư trả lời vậy.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <rect x="30" y="30" width="280" height="220" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="170" y="60" text-anchor="middle" font-weight="800" font-size="16" fill="#2563eb">FRONTEND</text>
+      <text x="170" y="82" text-anchor="middle" font-size="12" fill="#3b82f6">React + Vite</text>
+      <text x="170" y="100" text-anchor="middle" font-size="11" fill="#6b7280">localhost:5173</text>
+      
+      <rect x="50" y="115" width="240" height="28" rx="6" fill="white" stroke="#93c5fd"/>
+      <text x="170" y="134" text-anchor="middle" font-size="11" fill="#1e293b">services/api.js (Axios)</text>
+      
+      <rect x="50" y="150" width="240" height="28" rx="6" fill="white" stroke="#93c5fd"/>
+      <text x="170" y="169" text-anchor="middle" font-size="11" fill="#1e293b">store/useAuthStore.js (Zustand)</text>
+      
+      <rect x="50" y="185" width="240" height="28" rx="6" fill="white" stroke="#93c5fd"/>
+      <text x="170" y="204" text-anchor="middle" font-size="11" fill="#1e293b">pages/*.jsx (Giao diện)</text>
+
+      <rect x="490" y="30" width="280" height="220" rx="16" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="630" y="60" text-anchor="middle" font-weight="800" font-size="16" fill="#059669">BACKEND</text>
+      <text x="630" y="82" text-anchor="middle" font-size="12" fill="#10b981">Express.js + Node</text>
+      <text x="630" y="100" text-anchor="middle" font-size="11" fill="#6b7280">localhost:5000</text>
+      
+      <rect x="510" y="115" width="240" height="28" rx="6" fill="white" stroke="#6ee7b7"/>
+      <text x="630" y="134" text-anchor="middle" font-size="11" fill="#1e293b">server.js (Ứng dụng Express)</text>
+      
+      <rect x="510" y="150" width="240" height="28" rx="6" fill="white" stroke="#6ee7b7"/>
+      <text x="630" y="169" text-anchor="middle" font-size="11" fill="#1e293b">routes/ + controllers/</text>
+      
+      <rect x="510" y="185" width="240" height="28" rx="6" fill="white" stroke="#6ee7b7"/>
+      <text x="630" y="204" text-anchor="middle" font-size="11" fill="#1e293b">MongoDB (qua Mongoose)</text>
+
+      <path d="M310,130 Q400,100 490,130" fill="none" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arr)"/>
+      <text x="400" y="108" text-anchor="middle" font-size="11" font-weight="700" fill="#2563eb">Gửi request (Axios)</text>
+      
+      <path d="M490,175 Q400,205 315,175" fill="none" stroke="#059669" stroke-width="2.5" marker-end="url(#arr)"/>
+      <text x="400" y="202" text-anchor="middle" font-size="11" font-weight="700" fill="#059669">Trả về JSON</text>
+    </svg>
+  </div>
+
+  <p>Để hai bên "nói chuyện" được, cần cấu hình <strong>3 thứ</strong>:</p>
+
+  <h3>Thứ nhất: Frontend tạo "người đưa thư" — Axios instance</h3>
+  <p><span class="file-ref">frontend/src/services/api.js</span></p>
+  <pre><code>import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api',  // Mọi request đều bắt đầu bằng URL này
+  withCredentials: true,                 // Gửi cookie (session) kèm theo mỗi request
+});
+
+export default api;</code></pre>
+  <div class="line-explain"><span class="line-num">L4</span><span class="line-text"><strong>baseURL</strong> — Thay vì lần nào cũng viết dài dòng <code>axios.get('http://localhost:5000/api/goals')</code>, giờ chỉ cần viết gọn <code>api.get('/goals')</code>. Tiện hơn nhiều!</span></div>
+  <div class="line-explain"><span class="line-num">L5</span><span class="line-text"><strong>withCredentials: true</strong> — Dòng này <em>cực kỳ quan trọng</em>! Nó bảo browser: "Mỗi lần gửi request, nhớ đính kèm cookie session nhé." Nếu thiếu dòng này, backend sẽ không biết bạn là ai, dù bạn đã đăng nhập rồi.</span></div>
+
+  <h3>Thứ hai: Backend cho phép Frontend truy cập — cấu hình CORS</h3>
+  <p><span class="file-ref">backend/server.js</span></p>
+  <pre><code>app.use(cors({
+  origin: 'http://localhost:5173',  // Chỉ cho phép frontend ở địa chỉ này gọi API
+  credentials: true,                // Cho phép gửi/nhận cookie qua lại
+}));</code></pre>
+
+  <div class="teacher-note">
+    <strong>Giải thích CORS cho dễ hiểu:</strong> Mặc định, browser sẽ <em>chặn</em> mọi request từ trang web này sang trang web khác (vì lý do bảo mật). Frontend ở port 5173, backend ở port 5000 — khác "nguồn gốc" (origin) → bị chặn. Cấu hình CORS giống như backend nói với browser: "Ê, tao cho phép thằng frontend kia gọi API của tao, đừng chặn nó."
+  </div>
+
+  <div class="line-explain"><span class="line-num">L28</span><span class="line-text"><strong>credentials: true</strong> — Phải bật ở <em>CẢ HAI BÊN</em>: frontend (<code>withCredentials</code>) + backend (<code>credentials</code>). Thiếu một bên là cookie không gửi được → session không hoạt động.</span></div>
+
+  <h3>Thứ ba: Backend định nghĩa các "đường dẫn" API</h3>
+  <pre><code>// backend/server.js
+app.use('/api/auth', authRoutes);    // Mọi request /api/auth/* → authRoutes xử lý
+app.use('/api/goals', goalRoutes);   // Mọi request /api/goals/* → goalRoutes xử lý
+app.use('/api/threads', threadRoutes);
+app.use('/api/chats', chatRoutes);
+app.use('/api/notis', notiRoutes);
+app.use('/api/stocks', stockRoutes);
+app.use('/api/users', userRoutes);</code></pre>
+  <div class="line-explain"><span class="line-num">L78</span><span class="line-text"><strong>app.use('/api/auth', authRoutes)</strong> — Khi frontend gọi <code>api.post('/auth/login')</code>, Express sẽ thấy URL bắt đầu bằng <code>/api/auth</code> → chuyển sang authRoutes xử lý. Trong đó, authRoutes thấy phần còn lại là <code>/login</code> → gọi hàm <code>login</code>.</span></div>
+</section>
+
+<!-- ========================================== -->
+<!-- 3. FLOW CỦA API REQUEST -->
+<!-- ========================================== -->
+<section id="api-flow">
+  <h2>3. Một API request đi qua những bước nào?</h2>
+
+  <p>OK, bây giờ mình đi vào thực tế luôn nhé. Hãy cùng theo dõi một ví dụ cụ thể: <strong>User gửi tin nhắn trong Chat</strong> (POST /api/chats/:threadId). Mình sẽ đi từng bước một.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <rect x="20" y="20" width="180" height="70" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="110" y="48" text-anchor="middle" font-weight="700" font-size="12" fill="#2563eb">1. User bấm Gửi</text>
+      <text x="110" y="68" text-anchor="middle" font-size="10" fill="#6b7280">ChatPage.jsx</text>
+      
+      <line x1="200" y1="55" x2="240" y2="55" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="245" y="20" width="180" height="70" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="335" y="48" text-anchor="middle" font-weight="700" font-size="12" fill="#2563eb">2. Axios gửi POST</text>
+      <text x="335" y="68" text-anchor="middle" font-size="10" fill="#6b7280">api.post('/chats/xxx')</text>
+      
+      <line x1="425" y1="55" x2="465" y2="55" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="470" y="20" width="170" height="70" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="555" y="48" text-anchor="middle" font-weight="700" font-size="12" fill="#d97706">3. Kiểm tra CORS</text>
+      <text x="555" y="68" text-anchor="middle" font-size="10" fill="#6b7280">server.js cors()</text>
+
+      <path d="M555,90 L555,120" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="470" y="125" width="170" height="70" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="555" y="153" text-anchor="middle" font-weight="700" font-size="12" fill="#d97706">4. Đọc Session</text>
+      <text x="555" y="173" text-anchor="middle" font-size="10" fill="#6b7280">express-session</text>
+
+      <path d="M470,160 L330,160" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="150" y="125" width="180" height="70" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="240" y="153" text-anchor="middle" font-weight="700" font-size="12" fill="#d97706">5. Tìm user từ session</text>
+      <text x="240" y="173" text-anchor="middle" font-size="10" fill="#6b7280">Passport deserialize</text>
+
+      <path d="M240,195 L240,225" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <rect x="20" y="230" width="180" height="70" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+      <text x="110" y="258" text-anchor="middle" font-weight="700" font-size="12" fill="#dc2626">6. Đã đăng nhập?</text>
+      <text x="110" y="278" text-anchor="middle" font-size="10" fill="#6b7280">middleware/auth.js</text>
+
+      <text x="25" y="328" font-size="10" fill="#dc2626" font-weight="700">CHƯA → 401 Từ chối</text>
+
+      <path d="M200,265 L240,265" stroke="#059669" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="220" y="256" font-size="10" fill="#059669" font-weight="700">RỒI</text>
+      
+      <rect x="245" y="230" width="200" height="70" rx="12" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="345" y="258" text-anchor="middle" font-weight="700" font-size="12" fill="#059669">7. Khớp Route</text>
+      <text x="345" y="278" text-anchor="middle" font-size="10" fill="#6b7280">chatRoutes: POST /:threadId</text>
+      
+      <path d="M445,265 L485,265" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="490" y="230" width="180" height="70" rx="12" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="580" y="258" text-anchor="middle" font-weight="700" font-size="12" fill="#059669">8. Controller xử lý</text>
+      <text x="580" y="278" text-anchor="middle" font-size="10" fill="#6b7280">chatController.createChat</text>
+      
+      <path d="M580,300 L580,335" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <rect x="430" y="340" width="220" height="70" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="540" y="368" text-anchor="middle" font-weight="700" font-size="12" fill="#7c3aed">9. Gọi AI</text>
+      <text x="540" y="388" text-anchor="middle" font-size="10" fill="#6b7280">getAIResponse() → OpenAI API</text>
+
+      <path d="M430,375 L280,375" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="80" y="340" width="200" height="70" rx="12" fill="#fce7f3" stroke="#db2777" stroke-width="2"/>
+      <text x="180" y="368" text-anchor="middle" font-weight="700" font-size="12" fill="#db2777">10. Lưu vào MongoDB</text>
+      <text x="180" y="388" text-anchor="middle" font-size="10" fill="#6b7280">Chat.create({...})</text>
+
+      <path d="M180,410 L180,440" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="80" y="440" width="530" height="40" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="345" y="465" text-anchor="middle" font-weight="700" font-size="13" fill="#059669">11. Trả response → Frontend → Cập nhật giao diện</text>
+    </svg>
+  </div>
+
+  <h3>Đi vào code cụ thể nhé:</h3>
+  
+  <p><strong>Bước 1–2:</strong> <span class="file-ref">frontend/src/pages/ChatPage.jsx</span> — User bấm nút Gửi</p>
+  <pre><code>const handleSend = async (e) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || !activeThreadId) return;
+
+    setInput('');                    // Xoá ô nhập liệu ngay lập tức
+    setSending(true);                // Hiển thị trạng thái "đang gửi..."
+    
+    // Thêm 1 tin nhắn "tạm" để user thấy ngay (gọi là optimistic UI)
+    setChats((prev) => [...prev, { _id: tempId, prompt: text, loading: true }]);
+
+    // GỬI REQUEST VỀ BACKEND — đây là lúc "lá thư" được gửi đi!
+    const res = await api.post(`/chats/${activeThreadId}`, { prompt: text });
+    
+    // Nhận "thư trả lời" → thay thế tin nhắn tạm bằng data thật
+    setChats((prev) => prev.map((c) => (c._id === tempId ? res.data : c)));
+};</code></pre>
+
+  <p><strong>Bước 3–5:</strong> <span class="file-ref">backend/server.js</span> — Request đi qua hàng loạt "trạm kiểm soát" (middleware)</p>
+  <pre><code>// Mỗi request đều phải đi qua các middleware theo THỨ TỰ này:
+app.use(cors({...}));           // Bước 3: Kiểm tra "anh đến từ đâu?" → cho phép/từ chối
+app.use(express.json());        //         Đọc body JSON của request
+app.use(session({...}));        // Bước 4: Đọc cookie → khôi phục session cũ
+app.use(passport.initialize()); // Bước 5: Khởi tạo Passport
+app.use(passport.session());    //         Gọi deserializeUser → tìm user từ DB → gắn vào req.user</code></pre>
+
+  <div class="teacher-note">
+    <strong>Middleware là gì?</strong> Tưởng tượng bạn vào công ty: phải qua cổng bảo vệ → quẹt thẻ → đi thang máy → mới đến bàn làm việc. Mỗi "trạm" đó là một middleware. Request cũng phải qua từng trạm trước khi đến được Controller xử lý.
+  </div>
+
+  <p><strong>Bước 6:</strong> <span class="file-ref">backend/middleware/auth.js</span> — Kiểm tra đăng nhập</p>
+  <pre><code>export const isAuthenticated = (req, res, next) => {
+    if (req.isAuthenticated()) {  // Passport đã tìm được user trong session chưa?
+      return next();              // Rồi → cho đi tiếp vào Controller
+    }
+    return res.status(401).json({ error: 'Please log in' }); // Chưa → chặn lại!
+};</code></pre>
+
+  <p><strong>Bước 7–10:</strong> <span class="file-ref">backend/controllers/chatController.js</span> — "Bếp" xử lý chính</p>
+  <pre><code>export const createChat = async (req, res) => {
+    // Kiểm tra: thread này có thuộc về user đang đăng nhập không?
+    const thread = await Thread.findOne({
+        _id: req.params.threadId,      // threadId lấy từ URL (/chats/abc123)
+        userId: req.user._id,          // req.user do Passport gắn vào từ session
+    });
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+
+    // Lấy lịch sử chat cũ để AI có "ngữ cảnh" trả lời
+    const previousChats = await Chat.find({ threadId: thread._id })
+                                    .sort({ creationDate: 1 });
+    
+    // Gọi OpenAI API để lấy câu trả lời
+    const aiResponse = await getAIResponse(req.body.prompt, previousChats);
+    const htmlResponse = marked(aiResponse);  // Chuyển Markdown → HTML cho đẹp
+
+    // Lưu cả câu hỏi và câu trả lời vào database
+    const chat = await Chat.create({
+        prompt: req.body.prompt,
+        response: [aiResponse],
+        htmlContent: [htmlResponse],
+        threadId: thread._id,
+    });
+    
+    res.status(201).json(chat);  // Trả kết quả về cho frontend hiển thị
+};</code></pre>
+</section>
+
+<!-- ========================================== -->
+<!-- 4. GOOGLE OAUTH -->
+<!-- ========================================== -->
+<section id="oauth">
+  <h2>4. Google OAuth khác gì đăng ký / đăng nhập thường?</h2>
+
+  <p>Các bạn chắc đã quen với nút "Tiếp tục với Google" trên các trang web rồi đúng không? Vậy nó khác gì so với tự đăng ký bằng email + password? Mình so sánh cho dễ thấy nhé:</p>
+
+  <div class="compare-grid">
+    <div class="compare-col">
+      <h4><span class="badge badge-blue">Đăng ký thường</span></h4>
+      <ul>
+        <li>User <strong>tự nhập</strong> email + password</li>
+        <li>Password được <strong>mã hoá rồi lưu</strong> trong database của mình</li>
+        <li>Khi đăng nhập → so sánh password đã hash</li>
+        <li>Mình phải <strong>tự lo</strong> bảo mật password</li>
+        <li>User phải <strong>nhớ</strong> password (hay quên lắm!)</li>
+      </ul>
+    </div>
+    <div class="compare-col">
+      <h4><span class="badge badge-red">Google OAuth</span></h4>
+      <ul>
+        <li>User đăng nhập <strong>qua Google</strong></li>
+        <li><strong>Không hề lưu password</strong> — Google xác nhận hộ</li>
+        <li>Nhận thông tin (email, tên, ảnh) từ Google</li>
+        <li>Google chịu trách nhiệm <strong>bảo mật</strong></li>
+        <li>User chỉ cần <strong>1 click</strong>, không nhớ gì hết</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Flow: Đăng ký thường</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <rect x="20" y="20" width="150" height="60" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="95" y="48" text-anchor="middle" font-weight="700" font-size="11" fill="#2563eb">1. User điền form</text>
+      <text x="95" y="64" text-anchor="middle" font-size="10" fill="#6b7280">email + password</text>
+      
+      <line x1="170" y1="50" x2="210" y2="50" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="215" y="20" width="165" height="60" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="298" y="48" text-anchor="middle" font-weight="700" font-size="11" fill="#059669">2. POST /auth/signup</text>
+      <text x="298" y="64" text-anchor="middle" font-size="10" fill="#6b7280">authController.signup</text>
+      
+      <line x1="380" y1="50" x2="420" y2="50" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="425" y="20" width="155" height="60" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="503" y="48" text-anchor="middle" font-weight="700" font-size="11" fill="#d97706">3. Mã hoá password</text>
+      <text x="503" y="64" text-anchor="middle" font-size="10" fill="#6b7280">bcrypt + lưu DB</text>
+      
+      <line x1="580" y1="50" x2="620" y2="50" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="625" y="20" width="140" height="60" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="695" y="48" text-anchor="middle" font-weight="700" font-size="11" fill="#059669">4. Trả về user</text>
+      <text x="695" y="64" text-anchor="middle" font-size="10" fill="#6b7280">201 Tạo thành công</text>
+    </svg>
+  </div>
+
+  <pre><code>// controllers/authController.js — Hàm đăng ký
+export const signup = async (req, res) => {
+    const { email, password, firstName, lastName } = req.body;
+
+    // Kiểm tra: email này đã có ai dùng chưa?
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+        return res.status(400).json({ message: "Email already registered" });
+    }
+
+    // Tạo user mới — password sẽ được TỰ ĐỘNG mã hoá nhờ hook pre('save')
+    const newUser = await new User({
+        email,
+        accountData: { username: email, password, priviledge: "user" },
+        identityData: { firstName, lastName, displayName: `${firstName} ${lastName}` },
+    }).save();
+
+    const userResponse = newUser.toObject();
+    delete userResponse.accountData.password;  // Tuyệt đối KHÔNG gửi password về client
+    res.status(201).json(userResponse);
+};</code></pre>
+
+  <h3>Flow: Đăng nhập thường</h3>
+  <pre><code>// controllers/authController.js — Hàm đăng nhập
+export const login = (req, res, next) => {
+    // Nhờ Passport dùng LocalStrategy để kiểm tra email + password
+    passport.authenticate('local', (err, user, info) => {
+        if (err) return res.status(500).json({ error: 'Login failed' });
+        if (!user) return res.status(401).json({ error: info.message });
+
+        // Đăng nhập thành công → tạo session
+        req.logIn(user, (err) => {            // Passport tạo session + gửi cookie cho browser
+            if (err) return res.status(500).json({ error: 'Login failed' });
+            const userResponse = user.toObject();
+            delete userResponse.accountData.password;
+            res.json(userResponse);           // Trả dữ liệu user về frontend
+        });
+    })(req, res, next);  // Gọi ngay hàm authenticate (IIFE pattern)
+};</code></pre>
+  <div class="line-explain"><span class="line-num">L45</span><span class="line-text"><strong>passport.authenticate('local')</strong> — Passport sẽ gọi LocalStrategy mà mình đã cấu hình ở <code>passport.js</code>. Nó tìm user bằng email, rồi gọi <code>comparePassword</code> để so sánh.</span></div>
+  <div class="line-explain"><span class="line-num">L50</span><span class="line-text"><strong>req.logIn(user)</strong> — Đây là hàm "ma thuật" của Passport. Nó gọi <code>serializeUser</code> để lưu user._id vào session, rồi gửi cookie cho browser. Từ giờ browser mang theo cookie này mỗi lần gọi API.</span></div>
+
+  <h3>Flow: Google OAuth — phức tạp hơn nhưng đừng sợ!</h3>
+
+  <div class="teacher-note">
+    <strong>Ví dụ thực tế cho dễ hiểu:</strong> Google OAuth giống như bạn đến ngân hàng nhưng quên CMND. Bạn nhờ <em>bố mẹ</em> (Google) gọi điện xác nhận: "Đúng rồi, đây là con tôi." Ngân hàng tin tưởng bố mẹ bạn → cho bạn vào. Bạn không cần tạo mật khẩu riêng cho ngân hàng.
+  </div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 800 380" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <rect x="20" y="20" width="230" height="55" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="135" y="45" text-anchor="middle" font-weight="700" font-size="11" fill="#2563eb">1. User bấm "Tiếp tục với Google"</text>
+      <text x="135" y="62" text-anchor="middle" font-size="10" fill="#6b7280">href="/api/auth/google"</text>
+      
+      <path d="M135,75 L135,105" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="20" y="110" width="230" height="55" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="135" y="135" text-anchor="middle" font-weight="700" font-size="11" fill="#059669">2. Backend chuyển hướng đến Google</text>
+      <text x="135" y="152" text-anchor="middle" font-size="10" fill="#6b7280">passport.authenticate('google')</text>
+      
+      <path d="M250,137 L310,137" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="315" y="110" width="230" height="55" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+      <text x="430" y="135" text-anchor="middle" font-weight="700" font-size="11" fill="#dc2626">3. Google hiện trang đăng nhập</text>
+      <text x="430" y="152" text-anchor="middle" font-size="10" fill="#6b7280">accounts.google.com</text>
+      
+      <path d="M430,165 L430,195" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="315" y="200" width="230" height="55" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+      <text x="430" y="225" text-anchor="middle" font-weight="700" font-size="11" fill="#dc2626">4. User chọn tài khoản Google</text>
+      <text x="430" y="242" text-anchor="middle" font-size="10" fill="#6b7280">Cho phép FinBud truy cập</text>
+      
+      <path d="M315,227 L255,227" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="20" y="200" width="230" height="55" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="135" y="220" text-anchor="middle" font-weight="700" font-size="11" fill="#059669">5. Google gọi callback về backend</text>
+      <text x="135" y="240" text-anchor="middle" font-size="10" fill="#6b7280">/api/auth/google/callback?code=xxx</text>
+      
+      <path d="M135,255 L135,285" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="20" y="290" width="230" height="55" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="135" y="310" text-anchor="middle" font-weight="700" font-size="11" fill="#d97706">6. GoogleStrategy xử lý</text>
+      <text x="135" y="328" text-anchor="middle" font-size="10" fill="#6b7280">Tìm hoặc tạo User mới</text>
+      
+      <path d="M250,317 L310,317" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="315" y="290" width="230" height="55" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="430" y="310" text-anchor="middle" font-weight="700" font-size="11" fill="#059669">7. Tạo session + Chuyển hướng</text>
+      <text x="430" y="328" text-anchor="middle" font-size="10" fill="#6b7280">→ localhost:5173 (Frontend)</text>
+
+      <path d="M545,317 L590,317" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="595" y="290" width="175" height="55" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="683" y="310" text-anchor="middle" font-weight="700" font-size="11" fill="#2563eb">8. Frontend tải lại</text>
+      <text x="683" y="328" text-anchor="middle" font-size="10" fill="#6b7280">fetchUser() → đã login!</text>
+    </svg>
+  </div>
+
+  <p><strong>Bước 1:</strong> Ở đây có một chi tiết quan trọng mà nhiều bạn hay nhầm. Nút "Tiếp tục với Google" dùng thẻ <code>&lt;a href&gt;</code> chứ <strong>KHÔNG phải</strong> gọi Axios:</p>
+  <pre><code>&lt;!-- LoginPage.jsx — Dùng thẻ &lt;a&gt; thường, KHÔNG phải api.get --&gt;
+&lt;a href="http://localhost:5000/api/auth/google"&gt;
+    Continue with Google
+&lt;/a&gt;</code></pre>
+  <div class="line-explain"><span class="line-num">L79</span><span class="line-text">Tại sao phải dùng <code>&lt;a href&gt;</code>? Vì browser cần <strong>chuyển hướng nguyên cả trang</strong> sang Google (accounts.google.com). Axios chỉ gửi request "ngầm" bên dưới, không redirect được. Đây là điểm khác biệt rất hay gặp lỗi.</span></div>
+
+  <p><strong>Bước 2:</strong> Backend chuyển hướng user đến trang đăng nhập Google:</p>
+  <pre><code>// controllers/authController.js
+export const googleAuth = passport.authenticate('google', {
+    scope: ['email', 'profile'],  // "Xin phép" Google cho mình xem email và thông tin cá nhân
+});</code></pre>
+
+  <p><strong>Bước 5–6:</strong> Sau khi user cho phép, Google gọi lại callback URL. GoogleStrategy xử lý:</p>
+  <pre><code>// config/googleStrategy.js
+const createGoogleStrategy = () => {
+  return new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: 'http://localhost:5000/api/auth/google/callback',
+  },
+  async (accessToken, refreshToken, profile, done) => {
+      const email = profile.emails[0].value;
+      
+      // Tìm xem email này đã có trong database chưa?
+      let user = await User.findOne({ email });
+      if (user) return done(null, user);    // Có rồi → đăng nhập luôn, đơn giản!
+
+      // Chưa có → Tạo tài khoản MỚI, nhưng KHÔNG CÓ PASSWORD!
+      user = await new User({
+          email,
+          accountData: { username: email, priviledge: 'user' },
+          identityData: {
+              firstName: profile.name.givenName || '',
+              lastName: profile.name.familyName || '',
+              displayName: profile.displayName || '',
+              profilePicture: profile.photos[0]?.value || '',  // Lấy luôn ảnh từ Google
+          },
+      }).save();
+
+      done(null, user);
+  });
+};</code></pre>
+  <div class="line-explain"><span class="line-num">L6</span><span class="line-text"><strong>clientID + clientSecret</strong> — Lấy từ Google Cloud Console. Giống như "thẻ căn cước" của app FinBud khi nói chuyện với Google: "Tôi là FinBud, đây là mã xác minh của tôi."</span></div>
+  <div class="line-explain"><span class="line-num">L9</span><span class="line-text"><strong>callbackURL</strong> — Sau khi user chọn tài khoản Google xong, Google sẽ chuyển hướng về đúng URL này để backend xử lý tiếp.</span></div>
+  <div class="line-explain"><span class="line-num">L11</span><span class="line-text"><strong>profile</strong> — Đây là thông tin Google gửi về: tên, email, ảnh đại diện. Chú ý: mình <strong>KHÔNG BAO GIỜ</strong> thấy password của họ — Google giữ phần đó.</span></div>
+  <div class="line-explain"><span class="line-num">L14</span><span class="line-text"><strong>Nếu user đã tồn tại</strong> → chỉ cần đăng nhập, KHÔNG tạo mới. Điều này đảm bảo: 1 email = 1 tài khoản, dù đăng nhập bằng Google hay bằng password.</span></div>
+  <div class="line-explain"><span class="line-num">L17</span><span class="line-text"><strong>Nếu user chưa tồn tại</strong> → tạo tài khoản mới <em>không có password</em>. Nên user này chỉ có thể đăng nhập bằng Google mà thôi.</span></div>
+
+  <p><strong>Bước 7:</strong> Tạo session rồi chuyển hướng về frontend:</p>
+  <pre><code>// controllers/authController.js
+export const googleCallback = (req, res, next) => {
+    passport.authenticate('google', (err, user) => {
+      if (err || !user) {
+        return res.redirect('http://localhost:5173/login?error=auth_failed');
+      }
+      req.logIn(user, (err) => {        // Tạo session — GIỐNG HỆT đăng nhập thường!
+        if (err) return res.redirect('http://localhost:5173/login?error=auth_failed');
+        res.redirect('http://localhost:5173');  // Đưa user về trang chủ frontend
+      });
+    })(req, res, next);
+};</code></pre>
+
+  <div class="teacher-note">
+    <strong>Điểm mấu chốt:</strong> Dù đăng nhập bằng Google hay bằng email+password, cuối cùng đều gọi <code>req.logIn()</code> để tạo session. Từ đây trở đi, cả hai cách đều hoạt động <em>y hệt nhau</em> — backend không cần phân biệt nữa.
+  </div>
+</section>
+
+<!-- ========================================== -->
+<!-- 5. SESSION -->
+<!-- ========================================== -->
+<section id="session">
+  <h2>5. Session hoạt động như thế nào?</h2>
+
+  <p>Đây là phần nhiều bạn hay mơ hồ nhất. Mình giải thích bằng ví dụ thực tế nhé.</p>
+  
+  <p>HTTP vốn là <strong>vô trạng thái</strong> (stateless) — nghĩa là mỗi request đều là một "người lạ". Giống như bạn gọi điện đến tổng đài mà mỗi lần gọi lại gặp nhân viên khác, phải giới thiệu lại từ đầu. <strong>Session</strong> sinh ra để giải quyết vấn đề đó — nó là cách server "nhớ" bạn là ai giữa các request.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 800 340" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <rect x="20" y="20" width="300" height="300" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="170" y="50" text-anchor="middle" font-weight="800" font-size="16" fill="#2563eb">TRÌNH DUYỆT</text>
+      
+      <rect x="45" y="70" width="250" height="60" rx="10" fill="white" stroke="#93c5fd"/>
+      <text x="170" y="92" text-anchor="middle" font-weight="700" font-size="12" fill="#1e293b">Cookie (vé vào cửa)</text>
+      <text x="170" y="118" text-anchor="middle" font-size="10" font-family="monospace" fill="#6b7280">connect.sid = s%3Axyz123abc...</text>
+
+      <rect x="45" y="150" width="250" height="40" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+      <text x="170" y="175" text-anchor="middle" font-size="11" fill="#1e293b">Mỗi request đều gửi kèm cookie này</text>
+
+      <rect x="45" y="210" width="250" height="50" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+      <text x="170" y="232" text-anchor="middle" font-size="10" fill="#6b7280">withCredentials: true (phía Axios)</text>
+      <text x="170" y="248" text-anchor="middle" font-size="10" fill="#6b7280">credentials: true (phía CORS)</text>
+
+      <rect x="420" y="20" width="350" height="300" rx="16" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="595" y="50" text-anchor="middle" font-weight="800" font-size="16" fill="#059669">SERVER (Express)</text>
+      
+      <rect x="445" y="70" width="300" height="100" rx="10" fill="white" stroke="#6ee7b7"/>
+      <text x="595" y="92" text-anchor="middle" font-weight="700" font-size="12" fill="#1e293b">Kho Session (Bộ nhớ)</text>
+      <text x="455" y="118" font-size="10" font-family="monospace" fill="#6b7280">xyz123abc → { passport: { user: "67f..." } }</text>
+      <text x="455" y="138" font-size="10" font-family="monospace" fill="#6b7280">def456ghi → { passport: { user: "89a..." } }</text>
+      <text x="455" y="155" font-size="10" fill="#9ca3af">... mỗi user có 1 entry riêng</text>
+
+      <rect x="445" y="190" width="300" height="60" rx="10" fill="#ede9fe" stroke="#7c3aed"/>
+      <text x="595" y="214" text-anchor="middle" font-weight="700" font-size="12" fill="#7c3aed">Passport deserializeUser</text>
+      <text x="595" y="234" text-anchor="middle" font-size="10" fill="#6b7280">User.findById("67f...") → req.user = {...}</text>
+
+      <rect x="445" y="268" width="300" height="40" rx="10" fill="#fce7f3" stroke="#db2777"/>
+      <text x="595" y="293" text-anchor="middle" font-weight="700" font-size="12" fill="#db2777">req.user → dùng trong Controller!</text>
+
+      <path d="M320,130 Q370,100 420,95" fill="none" stroke="#6b7280" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="370" y="90" text-anchor="middle" font-size="9" fill="#6b7280">cookie</text>
+      
+      <path d="M595,170 L595,185" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr)"/>
+      <path d="M595,250 L595,263" stroke="#db2777" stroke-width="1.5" marker-end="url(#arr)"/>
+    </svg>
+  </div>
+
+  <div class="teacher-note">
+    <strong>Ví dụ cho dễ hiểu:</strong> Session giống như vòng tay vào hội chợ. Lần đầu bạn mua vé (đăng nhập) → nhận vòng tay (cookie). Sau đó mỗi lần đi qua cổng (mỗi request), bạn chỉ cần giơ vòng tay lên → bảo vệ quét mã → biết bạn là ai → cho vào. Hết ngày (cookie hết hạn) → phải mua vé lại (đăng nhập lại).
+  </div>
+
+  <h3>Bước 1: Cấu hình Session trên server</h3>
+  <pre><code>// backend/server.js
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'finbud-secret',  // Khoá bí mật để "ký" cookie
+  resave: false,             // Không lưu lại session nếu không có thay đổi
+  saveUninitialized: false,  // Không tạo session cho request chưa đăng nhập
+  cookie: { maxAge: 24 * 60 * 60 * 1000 }  // Cookie hết hạn sau 24 giờ
+}));</code></pre>
+  <div class="line-explain"><span class="line-num">L34</span><span class="line-text"><strong>secret</strong> — Dùng để <em>ký</em> (sign) cookie, đảm bảo không ai có thể giả mạo. Giống như con dấu của server vậy — chỉ server mới có.</span></div>
+  <div class="line-explain"><span class="line-num">L35</span><span class="line-text"><strong>resave: false</strong> — Tiết kiệm: chỉ cập nhật session khi có gì đó thay đổi.</span></div>
+  <div class="line-explain"><span class="line-num">L37</span><span class="line-text"><strong>maxAge: 86.400.000ms = 24 giờ</strong> — Sau 24 giờ, cookie tự hết hạn, user phải đăng nhập lại. Giống vé tháng xe buýt — hết hạn thì phải mua mới.</span></div>
+
+  <h3>Bước 2: Passport Serialize / Deserialize — "Ghi sổ" và "Tra sổ"</h3>
+  <pre><code>// config/passport.js
+
+// KHI ĐĂNG NHẬP: "ghi sổ" — lưu user._id vào session
+passport.serializeUser((user, done) => {
+    done(null, user.id);  // Chỉ lưu mỗi _id thôi, KHÔNG lưu hết cả object
+});
+
+// MỖI REQUEST SAU ĐÓ: "tra sổ" — lấy _id từ session, tìm user trong DB
+passport.deserializeUser(async (id, done) => {
+    const user = await User.findById(id);  // Truy vấn DB bằng _id
+    done(null, user);  // Gắn kết quả vào req.user
+});</code></pre>
+  <div class="line-explain"><span class="line-num">L35</span><span class="line-text"><strong>serializeUser</strong> — Chạy <em>1 lần duy nhất</em> khi user đăng nhập. Chỉ lưu user._id vào session (nhẹ, nhanh). Tại sao không lưu cả object? Vì session nằm trong bộ nhớ, lưu ít thì tiết kiệm hơn.</span></div>
+  <div class="line-explain"><span class="line-num">L40</span><span class="line-text"><strong>deserializeUser</strong> — Chạy <em>MỖI REQUEST</em>. Đọc user._id từ session → truy vấn DB lấy đầy đủ thông tin → gắn vào <code>req.user</code>. Nhờ vậy mà Controller luôn biết "ai đang gọi API".</span></div>
+
+  <h3>Bước 3: Sử dụng req.user trong Controller</h3>
+  <pre><code>// Ví dụ: goalController.js
+export const getGoals = async (req, res) => {
+    // req.user đã được Passport gắn sẵn từ deserializeUser
+    const goals = await Goal.find({ userId: req.user._id });  // Chỉ lấy goals của user này
+    res.json(goals);
+};</code></pre>
+
+  <div class="card" style="background: #fffbeb; border-color: #fbbf24;">
+    <p style="margin: 0;"><strong>Tóm tắt toàn bộ flow Session:</strong> Đăng nhập → <code>serializeUser</code> lưu user._id vào session → server gửi cookie cho browser → mỗi request sau đó browser gửi kèm cookie → server đọc session → <code>deserializeUser</code> tìm user trong DB → gắn vào <code>req.user</code> → Controller dùng <code>req.user._id</code> để lọc dữ liệu.</p>
+  </div>
+</section>
+
+<!-- ========================================== -->
+<!-- 6. OPENAI -->
+<!-- ========================================== -->
+<section id="openai">
+  <h2>6. Tích hợp OpenAI vào dự án ra sao?</h2>
+
+  <p>Phần này chắc là phần thú vị nhất rồi! FinBud dùng <strong>OpenAI GPT-4o-mini</strong> để làm chatbot trợ lý tài chính. Và tin vui là: toàn bộ logic tích hợp chỉ nằm trong <strong>1 file duy nhất</strong>, tổng cộng 34 dòng code thôi.</p>
+
+  <p>Mở file <span class="file-ref">backend/services/aiService.js</span> ra nhé:</p>
+  <pre><code>import OpenAI from 'openai';
+
+// Singleton pattern: chỉ tạo 1 client duy nhất, dùng đi dùng lại
+let openai;
+function getClient() {
+  if (!openai) {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openai;
+}</code></pre>
+  <div class="line-explain"><span class="line-num">L1</span><span class="line-text"><strong>import OpenAI</strong> — Đây là SDK chính thức từ OpenAI. Cài bằng lệnh <code>npm install openai</code>.</span></div>
+  <div class="line-explain"><span class="line-num">L3-9</span><span class="line-text"><strong>Singleton pattern</strong> — Chỉ tạo client 1 lần đầu tiên thôi, các lần sau tái sử dụng. Giống như bạn chỉ cần mở cửa 1 lần, sau đó cứ ra vào thoải mái. Tiết kiệm bộ nhớ và thời gian khởi tạo.</span></div>
+  <div class="line-explain"><span class="line-num">L7</span><span class="line-text"><strong>apiKey</strong> — Lấy từ biến môi trường (.env). Đây giống như "mật khẩu" để truy cập OpenAI API. <em>TUYỆT ĐỐI KHÔNG</em> được commit file .env lên git!</span></div>
+
+  <pre><code>export const getAIResponse = async (prompt, chatHistory = []) => {
+  // Xây dựng mảng messages theo format OpenAI yêu cầu
+  const messages = [
+    {
+      role: 'system',   // Tin nhắn hệ thống: định nghĩa "tính cách" cho AI
+      content: 'You are FinBud, a helpful financial assistant. You help users 
+               with stock analysis, financial planning, investment advice, 
+               and general financial questions. Be concise and informative.',
+    },
+  ];
+
+  // Thêm lịch sử chat cũ để AI có "ngữ cảnh"
+  for (const chat of chatHistory) {
+    messages.push({ role: 'user', content: chat.prompt });
+    messages.push({ role: 'assistant', content: chat.response[0] });
+  }
+
+  // Thêm câu hỏi mới nhất của user
+  messages.push({ role: 'user', content: prompt });
+
+  // Gọi OpenAI API
+  const completion = await getClient().chat.completions.create({
+    model: 'gpt-4o-mini',   // Model sử dụng (rẻ + nhanh)
+    messages,                // Gửi toàn bộ lịch sử + câu hỏi mới
+  });
+
+  return completion.choices[0].message.content;  // Lấy nội dung câu trả lời
+};</code></pre>
+
+  <div class="line-explain"><span class="line-num">L12</span><span class="line-text"><strong>messages array</strong> — OpenAI API yêu cầu gửi 1 mảng tin nhắn với 3 vai trò: <code>system</code> (định nghĩa bot), <code>user</code> (câu hỏi), <code>assistant</code> (câu trả lời trước đó).</span></div>
+  <div class="line-explain"><span class="line-num">L14-16</span><span class="line-text"><strong>System message</strong> — Gửi 1 lần đầu tiên. Nó dặn dò AI: "Mày là FinBud, trợ lý tài chính, trả lời ngắn gọn nhé." User không nhìn thấy tin nhắn này đâu.</span></div>
+  <div class="line-explain"><span class="line-num">L20-23</span><span class="line-text"><strong>Lịch sử chat</strong> — Đây là mấu chốt để AI "nhớ" được cuộc hội thoại. Thật ra AI không "nhớ" gì cả — mỗi lần gọi API, mình phải gửi LẠI TOÀN BỘ lịch sử. AI đọc lại tất cả rồi mới trả lời câu cuối.</span></div>
+  <div class="line-explain"><span class="line-num">L29</span><span class="line-text"><strong>gpt-4o-mini</strong> — Phiên bản nhỏ, rẻ hơn GPT-4o khoảng 15 lần nhưng vẫn thông minh. Phù hợp cho chatbot.</span></div>
+  <div class="line-explain"><span class="line-num">L33</span><span class="line-text"><strong>completion.choices[0].message.content</strong> — OpenAI có thể trả về nhiều "lựa chọn" (thường là 1). Mình lấy nội dung text từ lựa chọn đầu tiên.</span></div>
+
+  <h3>AI Service được gọi ở đâu?</h3>
+  <p>Trong <span class="file-ref">controllers/chatController.js</span>, khi user gửi tin nhắn:</p>
+  <pre><code>export const createChat = async (req, res) => {
+    // ... (kiểm tra thread thuộc user)
+    
+    // Lấy toàn bộ lịch sử chat cũ của thread này, sắp xếp theo thời gian
+    const previousChats = await Chat.find({ threadId: thread._id })
+                                    .sort({ creationDate: 1 });
+    
+    // GỌI AI SERVICE — truyền câu hỏi + lịch sử
+    const aiResponse = await getAIResponse(req.body.prompt, previousChats);
+    
+    // Chuyển Markdown → HTML để hiển thị đẹp trên giao diện
+    const htmlResponse = marked(aiResponse);
+
+    // Lưu cả câu hỏi và câu trả lời vào database
+    const chat = await Chat.create({
+        prompt: req.body.prompt,         // Câu hỏi của user
+        response: [aiResponse],          // Câu trả lời gốc (Markdown)
+        htmlContent: [htmlResponse],     // Câu trả lời đã format (HTML)
+        threadId: thread._id,
+    });
+    
+    res.status(201).json(chat);          // Gửi về frontend hiển thị
+};</code></pre>
+
+  <div class="diagram">
+    <svg viewBox="0 0 800 180" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <rect x="20" y="60" width="130" height="60" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="85" y="88" text-anchor="middle" font-weight="700" font-size="11" fill="#2563eb">User hỏi</text>
+      <text x="85" y="106" text-anchor="middle" font-size="10" fill="#6b7280">"TSLA có nên mua?"</text>
+      
+      <line x1="150" y1="90" x2="190" y2="90" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="195" y="60" width="140" height="60" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="265" y="85" text-anchor="middle" font-weight="700" font-size="11" fill="#059669">chatController</text>
+      <text x="265" y="104" text-anchor="middle" font-size="10" fill="#6b7280">Tải lịch sử chat</text>
+      
+      <line x1="335" y1="90" x2="375" y2="90" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="380" y="20" width="170" height="55" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="465" y="43" text-anchor="middle" font-weight="700" font-size="11" fill="#7c3aed">aiService.js</text>
+      <text x="465" y="62" text-anchor="middle" font-size="10" fill="#6b7280">Ghép mảng messages</text>
+      
+      <line x1="550" y1="47" x2="590" y2="47" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="595" y="20" width="170" height="55" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+      <text x="680" y="43" text-anchor="middle" font-weight="700" font-size="11" fill="#dc2626">OpenAI API</text>
+      <text x="680" y="62" text-anchor="middle" font-size="10" fill="#6b7280">api.openai.com</text>
+
+      <path d="M680,75 L680,110 L550,110" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="380" y="90" width="170" height="55" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="465" y="113" text-anchor="middle" font-weight="700" font-size="11" fill="#d97706">marked()</text>
+      <text x="465" y="132" text-anchor="middle" font-size="10" fill="#6b7280">Markdown → HTML</text>
+
+      <path d="M380,117 L340,117 L340,140 L265,140" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+      
+      <rect x="195" y="135" width="140" height="35" rx="8" fill="#fce7f3" stroke="#db2777"/>
+      <text x="265" y="157" text-anchor="middle" font-weight="700" font-size="10" fill="#db2777">Chat.create() → Lưu DB</text>
+    </svg>
+  </div>
+
+  <div class="card" style="background: #f0fdf4; border-color: #22c55e;">
+    <h3 style="margin-top: 0;">Mảng messages gửi đến OpenAI trông như thế này:</h3>
+    <pre style="margin: 10px 0 0;"><code>[
+  { role: "system",    content: "You are FinBud, a helpful financial assistant..." },
+  { role: "user",      content: "TSLA đang giá bao nhiêu?" },           // Chat cũ #1
+  { role: "assistant", content: "TSLA hiện đang giá $245..." },         // Trả lời cũ #1
+  { role: "user",      content: "Nên mua không?" },                     // Chat cũ #2
+  { role: "assistant", content: "Tuỳ vào risk tolerance của bạn..." },  // Trả lời cũ #2
+  { role: "user",      content: "Còn AAPL thì sao?" }                  // CÂU HỎI MỚI
+]</code></pre>
+    <p style="margin: 10px 0 0; font-size: 0.9rem; color: var(--muted);">AI đọc toàn bộ mảng này và trả lời câu hỏi cuối cùng, có "hiểu" ngữ cảnh của các câu trước đó. Chính vì vậy mà nó trả lời được kiểu "tiếp nối câu chuyện" chứ không phải mỗi lần bắt đầu lại từ đầu.</p>
+  </div>
+</section>
+
+<!-- ========================================== -->
+<!-- TỔNG KẾT -->
+<!-- ========================================== -->
+<section>
+  <h2>Tổng kết: Toàn bộ kiến trúc FinBud</h2>
+  
+  <p>Cuối cùng, mình tổng hợp lại toàn bộ kiến trúc của dự án bằng 1 sơ đồ lớn. Các bạn nhìn vào đây sẽ thấy tất cả các thành phần liên kết với nhau như thế nào:</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <text x="400" y="25" text-anchor="middle" font-weight="800" font-size="16" fill="#1e293b">FINBUD — Sơ đồ kiến trúc tổng thể</text>
+      
+      <rect x="20" y="50" width="120" height="50" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/>
+      <text x="80" y="80" text-anchor="middle" font-weight="700" font-size="13" fill="#475569">Người dùng</text>
+
+      <rect x="20" y="130" width="340" height="170" rx="14" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="190" y="158" text-anchor="middle" font-weight="800" font-size="14" fill="#2563eb">FRONTEND (React + Vite — :5173)</text>
+      
+      <rect x="40" y="170" width="140" height="30" rx="6" fill="white" stroke="#93c5fd"/>
+      <text x="110" y="190" text-anchor="middle" font-size="10" fill="#1e293b">Pages (Giao diện)</text>
+      
+      <rect x="200" y="170" width="140" height="30" rx="6" fill="white" stroke="#93c5fd"/>
+      <text x="270" y="190" text-anchor="middle" font-size="10" fill="#1e293b">Zustand Store</text>
+      
+      <rect x="40" y="210" width="140" height="30" rx="6" fill="white" stroke="#93c5fd"/>
+      <text x="110" y="230" text-anchor="middle" font-size="10" fill="#1e293b">Components</text>
+
+      <rect x="200" y="210" width="140" height="30" rx="6" fill="white" stroke="#93c5fd"/>
+      <text x="270" y="230" text-anchor="middle" font-size="10" fill="#1e293b">Axios (gửi request)</text>
+      
+      <rect x="40" y="250" width="300" height="30" rx="6" fill="#bfdbfe" stroke="#60a5fa"/>
+      <text x="190" y="270" text-anchor="middle" font-size="10" fill="#1e40af">ProtectedRoute — chặn nếu chưa đăng nhập</text>
+
+      <path d="M80,100 L80,125" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <rect x="420" y="50" width="360" height="260" rx="14" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+      <text x="600" y="78" text-anchor="middle" font-weight="800" font-size="14" fill="#059669">BACKEND (Express + Node — :5000)</text>
+      
+      <rect x="440" y="95" width="150" height="28" rx="6" fill="white" stroke="#6ee7b7"/>
+      <text x="515" y="114" text-anchor="middle" font-size="10" fill="#1e293b">CORS Middleware</text>
+      
+      <rect x="610" y="95" width="150" height="28" rx="6" fill="white" stroke="#6ee7b7"/>
+      <text x="685" y="114" text-anchor="middle" font-size="10" fill="#1e293b">Session + Passport</text>
+
+      <rect x="440" y="135" width="150" height="28" rx="6" fill="#fef3c7" stroke="#fbbf24"/>
+      <text x="515" y="154" text-anchor="middle" font-size="10" fill="#92400e">Routes (định tuyến)</text>
+
+      <rect x="610" y="135" width="150" height="28" rx="6" fill="#fee2e2" stroke="#fca5a5"/>
+      <text x="685" y="154" text-anchor="middle" font-size="10" fill="#991b1b">Auth Middleware</text>
+      
+      <rect x="440" y="175" width="320" height="28" rx="6" fill="#d1fae5" stroke="#34d399"/>
+      <text x="600" y="194" text-anchor="middle" font-size="10" fill="#065f46">Controllers (xử lý logic nghiệp vụ)</text>
+
+      <rect x="440" y="215" width="150" height="28" rx="6" fill="#ede9fe" stroke="#a78bfa"/>
+      <text x="515" y="234" text-anchor="middle" font-size="10" fill="#5b21b6">AI Service (OpenAI)</text>
+      
+      <rect x="610" y="215" width="150" height="28" rx="6" fill="#fef3c7" stroke="#fbbf24"/>
+      <text x="685" y="234" text-anchor="middle" font-size="10" fill="#92400e">Models (Mongoose)</text>
+
+      <rect x="440" y="260" width="320" height="28" rx="6" fill="white" stroke="#6ee7b7"/>
+      <text x="600" y="279" text-anchor="middle" font-size="10" fill="#1e293b">Passport Strategies (Local + Google)</text>
+
+      <path d="M360,200 Q390,200 415,200" fill="none" stroke="#6b7280" stroke-width="2.5" marker-end="url(#arr)"/>
+      <text x="388" y="192" text-anchor="middle" font-size="9" font-weight="700" fill="#6b7280">HTTP</text>
+
+      <path d="M415,220 Q390,220 365,220" fill="none" stroke="#6b7280" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="388" y="236" text-anchor="middle" font-size="9" fill="#6b7280">JSON</text>
+
+      <rect x="460" y="350" width="230" height="55" rx="14" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="575" y="375" text-anchor="middle" font-weight="800" font-size="14" fill="#d97706">MongoDB Atlas</text>
+      <text x="575" y="393" text-anchor="middle" font-size="10" fill="#6b7280">Cơ sở dữ liệu đám mây</text>
+
+      <path d="M600,310 L600,345" stroke="#d97706" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="613" y="332" font-size="9" fill="#d97706">Mongoose</text>
+
+      <rect x="460" y="430" width="230" height="55" rx="14" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="575" y="455" text-anchor="middle" font-weight="800" font-size="14" fill="#7c3aed">OpenAI API</text>
+      <text x="575" y="473" text-anchor="middle" font-size="10" fill="#6b7280">GPT-4o-mini</text>
+
+      <path d="M515,310 L515,345 L515,380 Q515,430 460,455" fill="none" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+
+      <rect x="100" y="350" width="200" height="55" rx="14" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+      <text x="200" y="375" text-anchor="middle" font-weight="800" font-size="14" fill="#dc2626">Google OAuth</text>
+      <text x="200" y="393" text-anchor="middle" font-size="10" fill="#6b7280">accounts.google.com</text>
+
+      <path d="M300,377 L455,310" fill="none" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+      <path d="M190,300 L190,345" fill="none" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+    </svg>
+  </div>
+
+  <div class="teacher-note">
+    <strong>Lời kết:</strong> Nếu các bạn đọc đến đây thì xin chúc mừng — các bạn đã hiểu được toàn bộ "bộ xương" của một ứng dụng web full-stack rồi đó! Từ cách tổ chức code (MVC), cách frontend và backend giao tiếp (Axios + CORS), cách xác thực người dùng (Session + Passport + Google OAuth), cho đến cách tích hợp AI (OpenAI). Đây là những kiến thức nền tảng mà các bạn sẽ gặp lại ở <em>hầu hết mọi dự án web</em> ngoài thực tế.
+  </div>
+</section>
+
+</div>
+</body>
+</html>
