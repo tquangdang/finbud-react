@@ -85,7 +85,7 @@ export const googleAuth = passport.authenticate('google', {
   });
   
   export const googleCallback = (req, res, next) => {
-    const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendURL = (process.env.FRONTEND_URL || 'http://localhost:5173').trim();
     passport.authenticate('google', (err, user) => {
       if (err || !user) {
         return res.redirect(`${frontendURL}/login?error=auth_failed`);
