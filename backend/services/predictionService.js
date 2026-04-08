@@ -11,10 +11,11 @@ export const pingMLService = async () => {
   }
 };
 
-export const getStockPrediction = async (symbol, daysAhead = 365) => {
+export const getStockPrediction = async (symbol, { daysAhead = 365, trainingYears = 2 } = {}) => {
   const res = await axios.post(`${ML_SERVICE_URL}/predict`, {
     symbol,
     days_ahead: daysAhead,
+    training_years: trainingYears,
   }, { timeout: 55000 });
   return res.data;
 };

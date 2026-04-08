@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import SideNav from './components/SideNav';
-import LoadingScreen from './components/LoadingScreen';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -17,7 +16,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   const fetchUser = useAuthStore((s) => s.fetchUser);
-  const loading = useAuthStore((s) => s.loading);
 
   useEffect(() => {
     fetchUser();
@@ -32,8 +30,6 @@ function App() {
       document.documentElement.classList.add('dark');
     }
   }, []);
-
-  if (loading) return <LoadingScreen />;
 
   return (
     <BrowserRouter>

@@ -59,6 +59,16 @@ const tools = [
             description:
               'Stock ticker symbol (e.g. TSLA, AAPL, MSFT, GOOGL). Convert company names to their ticker symbols.',
           },
+          training_years: {
+            type: 'integer',
+            description:
+              'How many years of historical data to train the model on (1-10). Use more years if the user mentions a longer history. Default 2.',
+          },
+          days_ahead: {
+            type: 'integer',
+            description:
+              'How many days into the future to predict (default 365). Use 180 for 6 months, 730 for 2 years, etc.',
+          },
         },
         required: ['symbol'],
       },
@@ -116,31 +126,24 @@ async function executeToolCall(name, args) {
         const results = await searchSymbol(args.symbol);
         if (results.length > 0) symbol = results[0].symbol;
       }
-      const prediction = await getStockPrediction(symbol);
-      const first = prediction.predictions[0];
-      const mid =
-        prediction.predictions[
-          Math.floor(prediction.predictions.length / 2)
-        ];
-      const last =
-        prediction.predictions[prediction.predictions.length - 1];
-      const pctChange = (
-        ((last.predicted_price - prediction.current_price) /
-          prediction.current_price) *
-        100
-      ).toFixed(1);
+      const prediction = await getStockPrediction(symbol, {
+        daysAhead: args.days_ahead || 365,
+        trainingYears: args.training_years || 2,
+      });
+      const predictions = prediction.predictions;
+      const last = predictions[predictions.length - 1];
+      const pctChange = last
+        ? (((last.predicted_price - prediction.current_price) /
+            prediction.current_price) * 100).toFixed(1)
+        : '0';
       return JSON.stringify({
         symbol,
         current_price: prediction.current_price,
-        trend:
-          last.predicted_price >= prediction.current_price
-            ? 'upward'
-            : 'downward',
+        trend: last && last.predicted_price >= prediction.current_price
+          ? 'upward' : 'downward',
         projected_change_pct: pctChange,
         training_info: prediction.model_info,
-        near_term: first,
-        mid_term: mid,
-        long_term: last,
+        monthly_predictions: predictions,
       });
     }
     case 'get_stock_quote': {

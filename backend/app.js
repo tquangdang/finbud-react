@@ -59,19 +59,15 @@ app.use(passport.initialize());
 app.use(passport.session());
 configurePassport(app);
 
-let cachedDb = null;
-async function connectDB() {
-  if (cachedDb && mongoose.connection.readyState === 1) return cachedDb;
-  cachedDb = await mongoose.connect(process.env.MONGO_URI);
-  return cachedDb;
-}
+const dbReady = mongoose.connect(process.env.MONGO_URI).catch((err) => {
+  console.error('DB connection error:', err);
+});
 
 app.use(async (req, res, next) => {
   try {
-    await connectDB();
+    if (mongoose.connection.readyState !== 1) await dbReady;
     next();
   } catch (err) {
-    console.error('DB connection error:', err);
     res.status(500).json({ error: 'Database connection failed' });
   }
 });

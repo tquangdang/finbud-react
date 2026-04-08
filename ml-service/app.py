@@ -23,6 +23,7 @@ app.add_middleware(
 class PredictionRequest(BaseModel):
     symbol: str
     days_ahead: int = 365
+    training_years: int = 2
 
 class PredictionResponse(BaseModel):
     symbol: str
@@ -78,9 +79,12 @@ def chart(symbol: str, range: str = "1M"):
 def predict(req: PredictionRequest):
     symbol = req.symbol.upper()
 
+    years = max(1, min(req.training_years, 10))
+    period = f"{years}y"
+
     try:
         ticker = yf.Ticker(symbol)
-        df = ticker.history(period="2y")
+        df = ticker.history(period=period)
     except Exception:
         raise HTTPException(status_code=400, detail=f"Could not fetch data for {symbol}")
 
