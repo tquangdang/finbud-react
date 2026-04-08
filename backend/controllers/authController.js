@@ -68,8 +68,10 @@ export const logout = (req, res) => {
 // Get current user controller
 export const getCurrentUser = (req, res) => {
     if (req.isAuthenticated()) {
-        const userResponse = req.user.toObject();
-        delete userResponse.accountData.password;
+        const userResponse = typeof req.user.toObject === 'function'
+            ? req.user.toObject()
+            : { ...req.user };
+        delete userResponse.accountData?.password;
         res.json({ isAuthenticated: true, user: userResponse });
     } else {
         res.status(401).json({ isAuthenticated: false });
