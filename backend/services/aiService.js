@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { getStockPrediction } from './predictionService.js';
+import { getStockPrediction, pingMLService } from './predictionService.js';
 import { searchSymbol, getQuote } from './stockService.js';
 
 let openai;
@@ -210,6 +210,9 @@ export async function* streamAIResponse(prompt, chatHistory = []) {
     Object.keys(toolCallsMap).length > 0
   ) {
     const toolCallsList = Object.values(toolCallsMap);
+
+    const needsML = toolCallsList.some((tc) => tc.name === 'get_stock_prediction');
+    if (needsML) pingMLService();
 
     messages.push({
       role: 'assistant',

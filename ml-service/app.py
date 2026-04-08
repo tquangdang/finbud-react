@@ -1,4 +1,5 @@
 import os
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -6,6 +7,9 @@ import yfinance as yf
 import pandas as pd
 from prophet import Prophet
 from datetime import datetime, timedelta
+
+logging.getLogger('cmdstanpy').setLevel(logging.WARNING)
+logging.getLogger('prophet').setLevel(logging.WARNING)
 
 app = FastAPI()
 
@@ -29,6 +33,19 @@ class PredictionResponse(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "finbud-ml"}
+
+@app.on_event("startup")
+def warmup():
+    """Force Prophet/Stan compilation on startup instead of first request."""
+    try:
+        small_df = pd.DataFrame({
+            "ds": pd.date_range("2024-01-01", periods=30, freq="D"),
+            "y": list(range(30)),
+        })
+        m = Prophet(daily_seasonality=False, weekly_seasonality=False, yearly_seasonality=False)
+        m.fit(small_df)
+    except Exception:
+        pass
 
 
 @app.get("/chart/{symbol}")
@@ -61,10 +78,9 @@ def chart(symbol: str, range: str = "1M"):
 def predict(req: PredictionRequest):
     symbol = req.symbol.upper()
 
-    # Fetch 3 years of historical data
     try:
         ticker = yf.Ticker(symbol)
-        df = ticker.history(period="3y")
+        df = ticker.history(period="2y")
     except Exception:
         raise HTTPException(status_code=400, detail=f"Could not fetch data for {symbol}")
 
@@ -94,10 +110,9 @@ def predict(req: PredictionRequest):
     last_date = prophet_df["ds"].max()
     future_only = forecast[forecast["ds"] > last_date]
 
-    # Format predictions (sample monthly to keep response small)
     predictions = []
     for _, row in future_only.iterrows():
-        if row["ds"].day <= 7:  # roughly monthly samples
+        if row["ds"].day == 1:
             predictions.append({
                 "date": row["ds"].strftime("%Y-%m-%d"),
                 "predicted_price": round(row["yhat"], 2),
@@ -105,7 +120,8 @@ def predict(req: PredictionRequest):
                 "upper_bound": round(row["yhat_upper"], 2),
             })
 
-    current_price = round(df["Close"].iloc[-1], 2)
+    last_valid_close = df["Close"].dropna().iloc[-1]
+    current_price = round(float(last_valid_close), 2)
 
     return PredictionResponse(
         symbol=symbol,
