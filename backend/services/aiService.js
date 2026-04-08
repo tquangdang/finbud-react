@@ -141,10 +141,14 @@ const TOOL_STATUS_LABELS = {
 async function executeToolCall(name, args) {
   switch (name) {
     case 'get_stock_prediction': {
-      let symbol = args.symbol.toUpperCase();
+      let symbol = (args.symbol || '').toUpperCase();
       if (!/^[A-Z]{1,5}$/.test(symbol)) {
         const results = await searchSymbol(args.symbol);
-        if (results.length > 0) symbol = results[0].symbol;
+        if (results.length > 0) {
+          symbol = results[0].symbol;
+        } else {
+          return JSON.stringify({ error: `Could not find a stock ticker for "${args.symbol}". Please check the company name or provide a valid ticker symbol like AAPL, TSLA, MSFT.` });
+        }
       }
       const prediction = await getStockPrediction(symbol, {
         daysAhead: args.days_ahead || 365,
@@ -152,14 +156,15 @@ async function executeToolCall(name, args) {
       });
       const predictions = prediction.predictions;
       const last = predictions[predictions.length - 1];
-      const pctChange = last
-        ? (((last.predicted_price - prediction.current_price) /
-            prediction.current_price) * 100).toFixed(1)
-        : '0';
+      const currentPrice = prediction.current_price;
+      let pctChange = '0';
+      if (last && currentPrice && currentPrice > 0) {
+        pctChange = (((last.predicted_price - currentPrice) / currentPrice) * 100).toFixed(1);
+      }
       return JSON.stringify({
         symbol,
-        current_price: prediction.current_price,
-        trend: last && last.predicted_price >= prediction.current_price
+        current_price: currentPrice,
+        trend: last && currentPrice && last.predicted_price >= currentPrice
           ? 'upward' : 'downward',
         projected_change_pct: pctChange,
         training_info: prediction.model_info,
@@ -167,11 +172,11 @@ async function executeToolCall(name, args) {
       });
     }
     case 'get_stock_quote': {
-      const quote = await getQuote(args.symbol.toUpperCase());
+      const quote = await getQuote((args.symbol || '').toUpperCase());
       return JSON.stringify(quote);
     }
     case 'search_stock_symbol': {
-      const results = await searchSymbol(args.query);
+      const results = await searchSymbol(args.query || '');
       return JSON.stringify(results.slice(0, 5));
     }
     default:
@@ -183,12 +188,15 @@ async function executeToolCall(name, args) {
  * Async generator that streams AI responses token-by-token.
  * Yields objects: { type: 'token', content } or { type: 'status', message }
  */
+const MAX_HISTORY_PAIRS = 20;
+
 export async function* streamAIResponse(prompt, chatHistory = []) {
   const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
 
-  for (const chat of chatHistory) {
+  const recentHistory = chatHistory.slice(-MAX_HISTORY_PAIRS);
+  for (const chat of recentHistory) {
     messages.push({ role: 'user', content: chat.prompt });
-    messages.push({ role: 'assistant', content: chat.response[0] });
+    messages.push({ role: 'assistant', content: (chat.response?.[0] || '').slice(0, 4000) });
   }
 
   messages.push({ role: 'user', content: prompt });
@@ -257,7 +265,12 @@ export async function* streamAIResponse(prompt, chatHistory = []) {
         const args = JSON.parse(tc.arguments);
         result = await executeToolCall(tc.name, args);
       } catch (err) {
-        result = JSON.stringify({ error: err.message });
+        const toolLabel = TOOL_STATUS_LABELS[tc.name] || tc.name;
+        result = JSON.stringify({
+          error: err.message || 'An unexpected error occurred',
+          tool: tc.name,
+          hint: `Tell the user that ${toolLabel} failed and suggest they try again or check the stock symbol.`,
+        });
       }
       messages.push({
         role: 'tool',

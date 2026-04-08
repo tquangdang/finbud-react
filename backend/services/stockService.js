@@ -7,6 +7,9 @@ export const getQuote = async (symbol) => {
   const res = await axios.get(`${FINNHUB_BASE}/quote`, {
     params: { symbol: symbol.toUpperCase(), token: apiKey() },
   });
+  if (!res.data.c && !res.data.pc) {
+    return { symbol: symbol.toUpperCase(), error: `No market data found for symbol "${symbol.toUpperCase()}". It may be an invalid ticker or not traded on a supported exchange.` };
+  }
   return {
     symbol: symbol.toUpperCase(),
     currentPrice: res.data.c,

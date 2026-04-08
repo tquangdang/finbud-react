@@ -20,6 +20,11 @@ export const getChats = async (req, res) => {
 };
 
 export const createChat = async (req, res) => {
+    const prompt = req.body?.prompt;
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+        return res.status(400).json({ error: 'Prompt is required and must be a non-empty string' });
+    }
+
     try {
         const thread = await Thread.findOne({
             _id: req.params.threadId,
@@ -66,13 +71,14 @@ export const createChat = async (req, res) => {
         res.end();
     } catch (error) {
         console.error('Chat error:', error);
+        const message = error.status === 429
+            ? 'Too many requests — please wait a moment and try again.'
+            : 'Something went wrong generating the response. Please try again.';
         if (res.headersSent) {
-            res.write(
-                `data: ${JSON.stringify({ type: 'error', message: 'Failed to get AI response' })}\n\n`
-            );
+            res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
             res.end();
         } else {
-            res.status(500).json({ error: 'Failed to get AI response' });
+            res.status(500).json({ error: message });
         }
     }
 };

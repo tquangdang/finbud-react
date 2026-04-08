@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { Bot, MoreHorizontal, Plus, Trash2, Pencil } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Bot, MoreHorizontal, Plus, Trash2, Pencil, Square, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import useAuthStore from '../store/useAuthStore';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -37,6 +39,17 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState(null);
   const messagesEndRef = useRef(null);
+  const abortRef = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleExpired = () => {
+      useAuthStore.getState().fetchUser();
+      navigate('/login');
+    };
+    window.addEventListener('auth:expired', handleExpired);
+    return () => window.removeEventListener('auth:expired', handleExpired);
+  }, [navigate]);
 
   const scrollToBottom = () =>
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,6 +134,69 @@ export default function ChatPage() {
 
   useEffect(scrollToBottom, [chats]);
 
+  const processSSEBuffer = useCallback((buffer, tempId, isFirstMessage) => {
+    const lines = buffer.split('\n\n');
+    const remaining = lines.pop() || '';
+    let gotDone = false;
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.type === 'token') {
+          setChats((prev) =>
+            prev.map((c) =>
+              c._id === tempId
+                ? { ...c, response: [(c.response?.[0] || '') + data.content], status: null }
+                : c
+            )
+          );
+        } else if (data.type === 'status') {
+          setChats((prev) =>
+            prev.map((c) =>
+              c._id === tempId ? { ...c, status: data.message } : c
+            )
+          );
+        } else if (data.type === 'done') {
+          gotDone = true;
+          setChats((prev) =>
+            prev.map((c) =>
+              c._id === tempId ? { ...data.chat, streaming: false } : c
+            )
+          );
+          if (isFirstMessage) fetchThreads();
+        } else if (data.type === 'error') {
+          setChats((prev) =>
+            prev.map((c) =>
+              c._id === tempId
+                ? { ...c, streaming: false, error: data.message || 'Something went wrong.' }
+                : c
+            )
+          );
+        }
+      } catch {
+        /* malformed SSE line */
+      }
+    }
+    return { remaining, gotDone };
+  }, []);
+
+  const handleStop = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => { if (abortRef.current) abortRef.current.abort(); };
+  }, []);
+
+  const handleRetry = useCallback((failedPrompt) => {
+    setInput(failedPrompt);
+    setChats((prev) => prev.filter((c) => c.prompt !== failedPrompt || !c.error));
+  }, []);
+
   const handleSend = async (e) => {
     e.preventDefault();
     const text = input.trim();
@@ -131,6 +207,9 @@ export default function ChatPage() {
 
     setInput('');
     setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setChats((prev) => [
       ...prev,
       { _id: tempId, prompt: text, response: [''], streaming: true },
@@ -142,63 +221,75 @@ export default function ChatPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ prompt: text }),
+        signal: controller.signal,
       });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.dispatchEvent(new CustomEvent('auth:expired'));
+          return;
+        }
+        let errorMsg = 'Something went wrong. Please try again.';
+        try {
+          const body = await res.json();
+          if (body.error) errorMsg = body.error;
+        } catch { /* non-JSON body */ }
+        setChats((prev) =>
+          prev.map((c) =>
+            c._id === tempId ? { ...c, streaming: false, error: errorMsg } : c
+          )
+        );
+        return;
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let gotDone = false;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.type === 'token') {
-              setChats((prev) =>
-                prev.map((c) =>
-                  c._id === tempId
-                    ? {
-                        ...c,
-                        response: [(c.response?.[0] || '') + data.content],
-                        status: null,
-                      }
-                    : c
-                )
-              );
-            } else if (data.type === 'status') {
-              setChats((prev) =>
-                prev.map((c) =>
-                  c._id === tempId ? { ...c, status: data.message } : c
-                )
-              );
-            } else if (data.type === 'done') {
-              setChats((prev) =>
-                prev.map((c) =>
-                  c._id === tempId
-                    ? { ...data.chat, streaming: false }
-                    : c
-                )
-              );
-              if (isFirstMessage) fetchThreads();
-            } else if (data.type === 'error') {
-              setChats((prev) => prev.filter((c) => c._id !== tempId));
-            }
-          } catch {
-            /* malformed SSE event */
-          }
-        }
+        const result = processSSEBuffer(buffer, tempId, isFirstMessage);
+        buffer = result.remaining;
+        if (result.gotDone) gotDone = true;
       }
-    } catch {
-      setChats((prev) => prev.filter((c) => c._id !== tempId));
+
+      if (buffer.trim()) {
+        const result = processSSEBuffer(buffer + '\n\n', tempId, isFirstMessage);
+        if (result.gotDone) gotDone = true;
+      }
+
+      if (!gotDone) {
+        setChats((prev) =>
+          prev.map((c) =>
+            c._id === tempId && c.streaming
+              ? { ...c, streaming: false, error: c.response?.[0] ? null : 'Response was interrupted. Please try again.' }
+              : c
+          )
+        );
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setChats((prev) =>
+          prev.map((c) =>
+            c._id === tempId ? { ...c, streaming: false } : c
+          )
+        );
+      } else {
+        setChats((prev) =>
+          prev.map((c) =>
+            c._id === tempId
+              ? { ...c, streaming: false, error: 'Connection lost. Please check your network and try again.' }
+              : c
+          )
+        );
+      }
     } finally {
       setSending(false);
+      abortRef.current = null;
     }
   };
 
@@ -292,16 +383,43 @@ export default function ChatPage() {
   // ---- Markdown renderer for AI responses ----
 
   const renderAIContent = (chat) => {
+    if (chat.error) {
+      const hasPartial = chat.response?.[0]?.length > 0;
+      return (
+        <div className="max-w-[75%] space-y-2">
+          {hasPartial && (
+            <div
+              className="px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
+              style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{chat.response[0]}</ReactMarkdown>
+            </div>
+          )}
+          <div
+            className="px-4 py-3 rounded-2xl rounded-bl-sm text-sm flex items-center gap-3"
+            style={{ background: 'var(--chat-assistant-bg)', color: '#ef4444' }}
+          >
+            <span>{chat.error}</span>
+            <button
+              type="button"
+              onClick={() => handleRetry(chat.prompt)}
+              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition"
+              style={{ background: 'var(--hover-bg)', color: 'var(--text-primary)' }}
+            >
+              <RotateCcw className="w-3 h-3" /> Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     if (chat.streaming) {
       const text = chat.response?.[0] || '';
       if (text) {
         return (
           <div
             className="max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
-            style={{
-              background: 'var(--chat-assistant-bg)',
-              color: 'var(--chat-assistant-text)',
-            }}
+            style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
             <span className="inline-block w-2 h-4 ml-0.5 animate-pulse rounded-sm" style={{ background: 'var(--accent-color)' }} />
@@ -312,10 +430,7 @@ export default function ChatPage() {
         return (
           <div
             className="max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm flex items-center gap-3"
-            style={{
-              background: 'var(--chat-assistant-bg)',
-              color: 'var(--text-secondary)',
-            }}
+            style={{ background: 'var(--chat-assistant-bg)', color: 'var(--text-secondary)' }}
           >
             <div
               className="w-4 h-4 border-2 rounded-full animate-spin shrink-0"
@@ -328,10 +443,7 @@ export default function ChatPage() {
       return (
         <div
           className="max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm"
-          style={{
-            background: 'var(--chat-assistant-bg)',
-            color: 'var(--text-secondary)',
-          }}
+          style={{ background: 'var(--chat-assistant-bg)', color: 'var(--text-secondary)' }}
         >
           <span className="inline-flex gap-1">
             <span className="animate-bounce [animation-delay:0ms]">.</span>
@@ -346,10 +458,7 @@ export default function ChatPage() {
     return (
       <div
         className="max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
-        style={{
-          background: 'var(--chat-assistant-bg)',
-          color: 'var(--chat-assistant-text)',
-        }}
+        style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
       >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
       </div>
@@ -473,6 +582,18 @@ export default function ChatPage() {
               className="px-4 py-3"
               style={{ borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}
             >
+              {sending && (
+                <div className="max-w-2xl mx-auto flex justify-center mb-2">
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium transition"
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
+                  >
+                    <Square className="w-3 h-3" /> Stop generating
+                  </button>
+                </div>
+              )}
               <form
                 onSubmit={handleSend}
                 className="max-w-2xl mx-auto flex gap-2"
