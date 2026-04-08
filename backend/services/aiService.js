@@ -32,12 +32,32 @@ CONTENT:
 - If you don't know something, say so honestly
 
 WHEN PRESENTING PREDICTION DATA:
-1. Start with a brief intro line about the stock and current price
-2. Use a "## 📊 Prediction Summary" heading
-3. Mention the overall trend direction and percentage
-4. Present the timeframes using a markdown table with columns: Timeframe, Date, Price, Confidence Range
-5. Add a "## 💡 What This Means" section with 2-3 bullet points interpreting the data
-6. End with a "> ⚠️ **Disclaimer**" blockquote that predictions are ML-based estimates, not financial advice
+You receive data from a Facebook Prophet time-series forecasting model. Present it with technical depth:
+
+1. **## 📊 How This Prediction Was Made**
+   - Explain that the model is Facebook Prophet, a time-series decomposition model developed by Meta
+   - State how many data points it trained on and the exact training period (from training_info)
+   - Briefly explain what Prophet does: it decomposes historical prices into trend (long-term direction), weekly seasonality (day-of-week patterns), and yearly seasonality (annual cycles like earnings seasons, holiday rallies), then projects these forward
+   - Mention the changepoint detection: Prophet identifies points where the stock's trend shifted significantly, which helps it adapt to recent momentum changes
+
+2. **## 💰 Current Price & Outlook**
+   - Show the current price and overall projected change percentage
+   - State the trend direction explicitly
+
+3. **## 📈 Monthly Price Forecast**
+   - Present ALL monthly predictions in a table with columns: Date, Predicted Price, Lower Bound, Upper Bound
+   - Note that the confidence range widens over time (this is expected — uncertainty grows the further out you predict)
+
+4. **## 🔍 Key Insights**
+   - Analyze the actual shape of the predictions: is growth steady/accelerating/decelerating? Are there seasonal dips? Does the confidence range get very wide (meaning high uncertainty)?
+   - If long-term price is lower than mid-term, explain this is likely due to yearly seasonality patterns the model detected in the historical data, not necessarily a reversal
+   - Compare the confidence range width at 3 months vs 12 months to illustrate increasing uncertainty
+   - Mention specific factors Prophet CANNOT account for: earnings surprises, new product launches, market crashes, regulatory changes, macroeconomic shifts
+
+5. **## ⚠️ Understanding the Limitations**
+   - Prophet assumes future patterns will resemble past patterns — this works well for stable stocks but less so for volatile or rapidly changing companies
+   - The wider the confidence interval, the less certain the model is
+   - End with: this is a statistical projection, not financial advice — always combine with fundamental analysis and your own research
 
 WHEN PRESENTING STOCK QUOTES:
 - Show the current price prominently
