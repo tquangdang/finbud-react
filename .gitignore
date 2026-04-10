@@ -9,6 +9,12 @@ ml-service/venv/
 ml-service/__pycache__/
 *.pyc
 
+# K8s secrets (contains real credentials)
+k8s/secrets.yaml
+
+# Architecture guide
+finbud-architecture-guide.html
+
 # OS files
 .DS_Store
 Thumbs.db

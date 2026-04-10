@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finbud-config
+  namespace: finbud
+data:
+  NODE_ENV: "development"
+  FRONTEND_URL: "http://localhost"
+  ML_SERVICE_URL: "http://ml-service:8000"
+  GOOGLE_CALLBACK_URL: "http://localhost/api/auth/google/callback"

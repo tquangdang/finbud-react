@@ -8,33 +8,40 @@ import pandas as pd
 from prophet import Prophet
 from datetime import datetime, timedelta
 
+# Logger configuration for CmdStanPy and Prophet
 logging.getLogger('cmdstanpy').setLevel(logging.WARNING)
 logging.getLogger('prophet').setLevel(logging.WARNING)
 
+# FastAPI app
 app = FastAPI()
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],    # Allow all origins
+    allow_methods=["*"],    # Allow all methods
+    allow_headers=["*"],    # Allow all headers
 )
 
+# Prediction request model
 class PredictionRequest(BaseModel):
     symbol: str
     days_ahead: int = 365
     training_years: int = 2
 
+# Prediction response model
 class PredictionResponse(BaseModel):
     symbol: str
     current_price: float
     predictions: list
     model_info: dict
 
+# Health check endpoint
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "finbud-ml"}
 
+# Warmup on startup
 @app.on_event("startup")
 def warmup():
     """Force Prophet/Stan compilation on startup instead of first request."""
@@ -48,7 +55,7 @@ def warmup():
     except Exception:
         pass
 
-
+# Chart endpoint
 @app.get("/chart/{symbol}")
 def chart(symbol: str, range: str = "1M"):
     period_map = {"1W": "5d", "1M": "1mo", "3M": "3mo", "1Y": "1y"}
@@ -75,6 +82,7 @@ def chart(symbol: str, range: str = "1M"):
         })
     return data
 
+# Prediction endpoint
 @app.post("/predict", response_model=PredictionResponse)
 def predict(req: PredictionRequest):
     symbol = req.symbol.upper()
