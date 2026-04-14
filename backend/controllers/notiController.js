@@ -1,8 +1,12 @@
 import Noti from '../models/Noti.js';
 import { getIO } from '../lib/socket.js';
 
+// This function is used to emit a notification update to the user
 function emitNotiUpdate(userId) {
+    // Get the socket.io instance
     const io = getIO();
+    // Emit the notification update to the user
+    // The user is identified by the userId
     if (io) io.to(`user:${userId}`).emit('noti:update');
 }
 

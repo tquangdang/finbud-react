@@ -13,9 +13,18 @@ const io = new Server(httpServer, {
 
 setIO(io);
 
+// Create a connection to the socket
 io.on('connection', (socket) => {
+  // Register the user to the socket
   socket.on('register', (userId) => {
     socket.join(`user:${userId}`);
+    console.log(`User ${userId} connected to the socket`);
+  });
+
+  // Unregister the user from the socket
+  socket.on('unregister', (userId) => {
+    socket.leave(`user:${userId}`);
+    console.log(`User ${userId} disconnected from the socket`);
   });
 });
 

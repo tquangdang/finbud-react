@@ -25,23 +25,29 @@ const useNotiStore = create((set, get) => ({
       set({ loading: false });
     }
   },
-
+// This function is used to connect to the socket
   connectSocket: async (userId) => {
+    // If the user is already connected, return
     if (get()._connected) return;
-
+    // If the socket URL is not set, return
     if (SOCKET_URL) {
       try {
+        // Import the socket.io client
         const { io } = await import('socket.io-client');
+        // Create a new socket connection
         socket = io(SOCKET_URL, { withCredentials: true });
+        // Register the user to the socket
         socket.emit('register', userId);
+        // Listen for notification updates
         socket.on('noti:update', () => get().fetchNotis());
         set({ _connected: true });
         return;
       } catch {
+        // If the socket connection fails, fall through to polling
         /* fall through to polling */
       }
     }
-
+    // Set up a polling interval to fetch notifications every 15 seconds
     const interval = setInterval(() => get().fetchNotis(), 15000);
     set({ _connected: true, _interval: interval });
   },

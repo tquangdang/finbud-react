@@ -5,8 +5,10 @@ export const getProfile = (req, res) => {
     try {
         const user = req.user;
         if (!user) return res.status(401).json({ error: 'Unauthorized' });
-        const userResponse = user.toObject();
-        delete userResponse.accountData.password;
+        const userResponse = typeof user.toObject === 'function'
+            ? user.toObject()
+            : { ...user };
+        delete userResponse.accountData?.password;
         res.json(userResponse);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch profile' });
