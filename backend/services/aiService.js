@@ -243,7 +243,7 @@ export async function* streamAIResponse(prompt, chatHistory = []) {
     const toolCallsList = Object.values(toolCallsMap);
 
     const needsML = toolCallsList.some((tc) => tc.name === 'get_stock_prediction');
-    if (needsML) pingMLService();
+    if (needsML) await pingMLService();
 
     messages.push({
       role: 'assistant',
