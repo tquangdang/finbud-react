@@ -74,3 +74,26 @@ body {
 .prose blockquote {
   border-left-color: var(--accent-color);
 }
+
+/* ── Forecast Card ── */
+.forecast-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.forecast-card .recharts-cartesian-grid-horizontal line {
+  stroke: var(--border-color);
+  stroke-opacity: 0.4;
+}
+
+.forecast-table-row:hover {
+  background: var(--hover-bg);
+}
+
+.forecast-card table {
+  border-collapse: collapse;
+}
+
+.forecast-card th,
+.forecast-card td {
+  white-space: nowrap;
+}

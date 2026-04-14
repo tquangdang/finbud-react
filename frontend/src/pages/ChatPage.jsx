@@ -5,6 +5,34 @@ import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import useAuthStore from '../store/useAuthStore';
+import ForecastCard from '../components/ForecastCard';
+
+const FORECAST_FENCE = /```forecast\n([\s\S]*?)\n```/g;
+
+function parseMessageContent(markdown) {
+  if (!markdown || !markdown.includes('```forecast')) {
+    return [{ type: 'markdown', content: markdown }];
+  }
+  const segments = [];
+  let lastIdx = 0;
+  let match;
+  const re = new RegExp(FORECAST_FENCE);
+  while ((match = re.exec(markdown)) !== null) {
+    if (match.index > lastIdx) {
+      segments.push({ type: 'markdown', content: markdown.slice(lastIdx, match.index) });
+    }
+    try {
+      segments.push({ type: 'forecast', data: JSON.parse(match[1]) });
+    } catch {
+      segments.push({ type: 'markdown', content: match[0] });
+    }
+    lastIdx = match.index + match[0].length;
+  }
+  if (lastIdx < markdown.length) {
+    segments.push({ type: 'markdown', content: markdown.slice(lastIdx) });
+  }
+  return segments;
+}
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -382,6 +410,21 @@ export default function ChatPage() {
 
   // ---- Markdown renderer for AI responses ----
 
+  const renderSegments = (text) => {
+    const segments = parseMessageContent(text);
+    return segments.map((seg, i) => {
+      if (seg.type === 'forecast') {
+        return <ForecastCard key={i} data={seg.data} />;
+      }
+      if (!seg.content?.trim()) return null;
+      return (
+        <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
+          {seg.content}
+        </ReactMarkdown>
+      );
+    });
+  };
+
   const renderAIContent = (chat) => {
     if (chat.error) {
       const hasPartial = chat.response?.[0]?.length > 0;
@@ -392,7 +435,7 @@ export default function ChatPage() {
               className="px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
               style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{chat.response[0]}</ReactMarkdown>
+              {renderSegments(chat.response[0])}
             </div>
           )}
           <div
@@ -421,7 +464,7 @@ export default function ChatPage() {
             className="max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
             style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+            {renderSegments(text)}
             <span className="inline-block w-2 h-4 ml-0.5 animate-pulse rounded-sm" style={{ background: 'var(--accent-color)' }} />
           </div>
         );
@@ -460,7 +503,7 @@ export default function ChatPage() {
         className="max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
         style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+        {renderSegments(markdown)}
       </div>
     );
   };

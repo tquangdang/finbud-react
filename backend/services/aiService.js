@@ -44,9 +44,10 @@ You receive data from a Facebook Prophet time-series forecasting model. Present 
    - Show the current price and overall projected change percentage
    - State the trend direction explicitly
 
-3. **## 📈 Monthly Price Forecast**
-   - Present ALL monthly predictions in a table with columns: Date, Predicted Price, Lower Bound, Upper Bound
-   - Note that the confidence range widens over time (this is expected — uncertainty grows the further out you predict)
+3. **## 📈 Price Forecast**
+   - DO NOT include a table of monthly predictions — the app automatically renders an interactive chart and visual card from the raw data
+   - Instead, briefly summarize the price trajectory in 1-2 sentences (e.g. "The model projects steady growth from $X to $Y over the next 12 months")
+   - Mention 1-2 notable milestones or seasonal patterns visible in the data
 
 4. **## 🔍 Key Insights**
    - Analyze the actual shape of the predictions: is growth steady/accelerating/decelerating? Are there seasonal dips? Does the confidence range get very wide (meaning high uncertainty)?
@@ -255,6 +256,8 @@ export async function* streamAIResponse(prompt, chatHistory = []) {
       })),
     });
 
+    let forecastPayload = null;
+
     for (const tc of toolCallsList) {
       const label =
         TOOL_STATUS_LABELS[tc.name] || 'Processing';
@@ -272,11 +275,20 @@ export async function* streamAIResponse(prompt, chatHistory = []) {
           hint: `Tell the user that ${toolLabel} failed and suggest they try again or check the stock symbol.`,
         });
       }
+
+      if (tc.name === 'get_stock_prediction' && result && !result.includes('"error"')) {
+        forecastPayload = result;
+      }
+
       messages.push({
         role: 'tool',
         tool_call_id: tc.id,
         content: result,
       });
+    }
+
+    if (forecastPayload) {
+      yield { type: 'token', content: '```forecast\n' + forecastPayload + '\n```\n\n' };
     }
 
     const followUpStream = await getClient().chat.completions.create({
