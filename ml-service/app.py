@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import numpy as np
 import yfinance as yf
 import pandas as pd
 from prophet import Prophet
@@ -106,6 +107,7 @@ def predict(req: PredictionRequest):
     prophet_df["ds"] = pd.to_datetime(prophet_df["ds"]).dt.tz_localize(None)
 
     # Train Prophet model
+    # The Prophet model is a time-series decomposition model developed by Meta
     model = Prophet(
         daily_seasonality=False,
         weekly_seasonality=True,
@@ -114,8 +116,8 @@ def predict(req: PredictionRequest):
     )
     model.fit(prophet_df)
 
-    # Make future predictions
     future = model.make_future_dataframe(periods=req.days_ahead)
+    np.random.seed(42)
     forecast = model.predict(future)
 
     # Get only the future predictions (after last known date)
