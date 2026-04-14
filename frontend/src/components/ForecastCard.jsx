@@ -93,14 +93,17 @@ export default function ForecastCard({ data }) {
       upper: current_price,
       originalLower: current_price,
     },
-    ...monthly_predictions.map((p) => ({
-      label: formatMonth(p.date),
-      predicted: p.predicted_price,
-      lower: p.lower_bound,
-      band: p.upper_bound - p.lower_bound,
-      upper: p.upper_bound,
-      originalLower: p.lower_bound,
-    })),
+    ...monthly_predictions.map((p) => {
+      const clampedLower = Math.max(0, p.lower_bound);
+      return {
+        label: formatMonth(p.date),
+        predicted: Math.max(0, p.predicted_price),
+        lower: clampedLower,
+        band: Math.max(0, p.upper_bound) - clampedLower,
+        upper: Math.max(0, p.upper_bound),
+        originalLower: clampedLower,
+      };
+    }),
   ], [current_price, monthly_predictions]);
 
   const milestones = useMemo(() => {
@@ -113,7 +116,7 @@ export default function ForecastCard({ data }) {
     ];
   }, [monthly_predictions]);
 
-  const yMin = Math.min(...chartData.map((d) => d.originalLower)) * 0.95;
+  const yMin = Math.max(0, Math.min(...chartData.map((d) => d.originalLower)) * 0.95);
   const yMax = Math.max(...chartData.map((d) => d.upper)) * 1.05;
 
   const gradientId = `forecast-band-${symbol}`;

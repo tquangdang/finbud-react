@@ -425,17 +425,23 @@ export default function ChatPage() {
     });
   };
 
+  const hasForecast = (text) => text?.includes('```forecast');
+
   const renderAIContent = (chat) => {
+    const responseText = chat.response?.[0] || '';
+    const wide = hasForecast(responseText);
+    const maxW = wide ? 'max-w-full' : 'max-w-[75%]';
+
     if (chat.error) {
-      const hasPartial = chat.response?.[0]?.length > 0;
+      const hasPartial = responseText.length > 0;
       return (
-        <div className="max-w-[75%] space-y-2">
+        <div className={`${maxW} space-y-2`}>
           {hasPartial && (
             <div
               className="px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
               style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
             >
-              {renderSegments(chat.response[0])}
+              {renderSegments(responseText)}
             </div>
           )}
           <div
@@ -457,11 +463,11 @@ export default function ChatPage() {
     }
 
     if (chat.streaming) {
-      const text = chat.response?.[0] || '';
+      const text = responseText;
       if (text) {
         return (
           <div
-            className="max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
+            className={`${maxW} px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none`}
             style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
           >
             {renderSegments(text)}
@@ -497,13 +503,12 @@ export default function ChatPage() {
       );
     }
 
-    const markdown = chat.response?.[0] || '';
     return (
       <div
-        className="max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none"
+        className={`${maxW} px-4 py-3 rounded-2xl rounded-bl-sm prose prose-sm max-w-none`}
         style={{ background: 'var(--chat-assistant-bg)', color: 'var(--chat-assistant-text)' }}
       >
-        {renderSegments(markdown)}
+        {renderSegments(responseText)}
       </div>
     );
   };
@@ -576,7 +581,7 @@ export default function ChatPage() {
           <>
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-6">
-              <div className="max-w-2xl mx-auto space-y-4">
+              <div className="max-w-4xl mx-auto space-y-4">
                 {loadingChats ? (
                   <div className="flex justify-center py-12">
                     <div
@@ -626,7 +631,7 @@ export default function ChatPage() {
               style={{ borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}
             >
               {sending && (
-                <div className="max-w-2xl mx-auto flex justify-center mb-2">
+                <div className="max-w-4xl mx-auto flex justify-center mb-2">
                   <button
                     type="button"
                     onClick={handleStop}
@@ -639,7 +644,7 @@ export default function ChatPage() {
               )}
               <form
                 onSubmit={handleSend}
-                className="max-w-2xl mx-auto flex gap-2"
+                className="max-w-4xl mx-auto flex gap-2"
               >
                 <input
                   type="text"
